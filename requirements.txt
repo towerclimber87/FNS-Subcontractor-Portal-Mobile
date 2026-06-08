@@ -1,0 +1,13 @@
+# Backend requirements for the FNS Subcontractor Portal mobile API patch.
+# The mobile app itself uses package.json / package-lock.json.
+# These packages already exist in the main ERP requirements.txt, but this file
+# documents the Python dependencies required by backend_patch/app/routes/mobile_subcontractor_api_route.py.
+fastapi==0.128.0
+starlette==0.50.0
+SQLAlchemy==2.0.46
+asyncpg==0.31.0
+python-jose==3.5.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+uvicorn==0.41.0
+python-multipart==0.0.22
