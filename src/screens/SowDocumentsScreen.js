@@ -121,15 +121,19 @@ export default function SowDocumentsScreen({ session, project, page, onBack, onH
   }
 
   return (
-    <ScreenShell title={page?.label || 'SOW Documents'} subtitle={siteName || 'Selected project'} onBack={onBack} onHome={onHome}>
+    <ScreenShell title="SOW Documents" subtitle={siteName || 'Selected project'} onBack={onBack} onHome={onHome}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Subcontractor Documents</Text>
-          <Text style={styles.heroTitle}>SOW Documents</Text>
-          <Text style={styles.heroText}>Installation documents and scope of work documents for this project.</Text>
+        <View style={styles.summaryBar}>
+          <View>
+            <Text style={styles.summaryKicker}>Documents</Text>
+            <Text style={styles.summaryTitle}>Installation & Scope of Work</Text>
+          </View>
+          <Text style={styles.summaryCount}>
+            {visibleSections.reduce((total, section) => total + (section.files?.length || 0), 0)}
+          </Text>
         </View>
 
         {loading ? (
@@ -157,11 +161,8 @@ export default function SowDocumentsScreen({ session, project, page, onBack, onH
                 <View key={section.key} style={[styles.sectionWrap, { width: `${100 / columns}%` }]}>
                   <View style={styles.sectionCard}>
                     <View style={styles.sectionHeader}>
-                      <View style={styles.sectionIcon}><Text style={styles.sectionIconText}>{section.key === 'installation' ? 'I' : 'S'}</Text></View>
-                      <View style={styles.sectionHeaderText}>
-                        <Text style={styles.sectionTitle}>{section.label}</Text>
-                        <Text style={styles.sectionSub}>{files.length} document{files.length === 1 ? '' : 's'}</Text>
-                      </View>
+                      <Text style={styles.sectionTitle}>{section.label}</Text>
+                      <Text style={styles.sectionSub}>{files.length} document{files.length === 1 ? '' : 's'}</Text>
                     </View>
 
                     {files.length === 0 ? (
@@ -208,11 +209,38 @@ export default function SowDocumentsScreen({ session, project, page, onBack, onH
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, paddingBottom: 36, backgroundColor: colors.pageBg },
-  hero: { backgroundColor: '#10233f', borderRadius: 24, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
-  eyebrow: { color: '#93c5fd', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
-  heroTitle: { color: '#fff', fontSize: 25, lineHeight: 31, fontWeight: '900', marginTop: 7 },
-  heroText: { color: '#c7d8ec', fontSize: 14, lineHeight: 20, fontWeight: '700', marginTop: 8 },
+  content: { padding: 14, paddingBottom: 36, backgroundColor: colors.pageBg },
+  summaryBar: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(191,219,254,0.9)',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+  },
+  summaryKicker: { color: colors.blue, fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  summaryTitle: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: '900', marginTop: 3 },
+  summaryCount: {
+    minWidth: 38,
+    textAlign: 'center',
+    color: '#fff',
+    backgroundColor: colors.blue,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    overflow: 'hidden',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   centerCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.line },
   centerText: { color: colors.muted, fontWeight: '800' },
   errorCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#fecaca', gap: 8 },
@@ -220,19 +248,32 @@ const styles = StyleSheet.create({
   errorText: { color: colors.text, fontWeight: '700', lineHeight: 20 },
   retryButton: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: colors.blue, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 },
   retryText: { color: '#fff', fontWeight: '900' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
-  sectionWrap: { padding: 6 },
-  sectionCard: { backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(191,219,254,0.92)', padding: 14, shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  sectionIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center', justifyContent: 'center' },
-  sectionIconText: { color: colors.blue, fontSize: 18, fontWeight: '900' },
-  sectionHeaderText: { flex: 1, minWidth: 0 },
-  sectionTitle: { color: colors.text, fontSize: 17, fontWeight: '900' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5 },
+  sectionWrap: { padding: 5 },
+  sectionCard: {
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(203,213,225,0.95)',
+    padding: 13,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.055,
+    shadowRadius: 11,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+  },
+  sectionHeader: {
+    paddingBottom: 10,
+    marginBottom: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  sectionTitle: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: '900' },
   sectionSub: { color: colors.muted, fontSize: 12, fontWeight: '800', marginTop: 2 },
-  emptyBox: { borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, padding: 14, backgroundColor: '#f8fafc' },
+  emptyBox: { borderRadius: 15, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.line, padding: 14, marginTop: 10, backgroundColor: '#f8fafc' },
   emptyText: { color: colors.muted, fontWeight: '800', textAlign: 'center' },
-  fileRow: { flexDirection: 'row', gap: 10, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.line },
-  fileType: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  fileRow: { flexDirection: 'row', gap: 10, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
+  fileType: { width: 40, height: 40, borderRadius: 13, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   fileTypeText: { color: colors.text, fontSize: 10, fontWeight: '900' },
   fileInfo: { flex: 1, minWidth: 0 },
   fileName: { color: colors.text, fontSize: 15, fontWeight: '900', lineHeight: 20 },
