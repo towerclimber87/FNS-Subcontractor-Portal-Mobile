@@ -9,7 +9,7 @@ const FALLBACK_PAGES = [
   { key: 'material_tracker', label: 'Material Tracker', icon: '📦' },
   { key: 'site_walk_redlines', label: 'Site Walk Redlines', icon: '✏️' },
   { key: 'site_walk_photos', label: 'Site Walk Photos', icon: '🖼️' },
-  { key: 'sow_documents', label: 'SOW / Documents', icon: '📄' },
+  { key: 'sow_documents', label: 'SOW Documents', icon: '📄' },
 ];
 
 export default function ProjectScreen({ project, pages, onBack, onHome, onOpenPage }) {

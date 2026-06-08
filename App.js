@@ -6,6 +6,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectScreen from './src/screens/ProjectScreen';
 import WebPortalScreen from './src/screens/WebPortalScreen';
+import SowDocumentsScreen from './src/screens/SowDocumentsScreen';
 import { clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
 import { logoutSubcontractor } from './src/api/subcontractorApi';
 import { colors } from './src/components/ScreenShell';
@@ -113,7 +114,20 @@ export default function App() {
         pages={route.pages}
         onBack={goHome}
         onHome={goHome}
-        onOpenPage={(page, project) => setRoute({ name: 'web', page, project, pages: route.pages })}
+        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : 'web', page, project, pages: route.pages })}
+      />
+    );
+  }
+
+
+  if (route.name === 'sowDocuments') {
+    return (
+      <SowDocumentsScreen
+        session={session}
+        project={route.project}
+        page={route.page}
+        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onHome={goHome}
       />
     );
   }

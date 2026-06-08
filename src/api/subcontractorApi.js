@@ -6,6 +6,9 @@ const HOME_PATH = '/mobile/subcontractor/api/home';
 const PROJECTS_PATH = '/mobile/subcontractor/api/projects';
 const SESSION_WEBVIEW_PATH = '/mobile/subcontractor/api/session';
 
+const SITE_DOCUMENTS_PATH = '/mobile/subcontractor/api/site-documents/files';
+const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/delete';
+
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
   if (!raw) return '';
@@ -127,10 +130,42 @@ export function sitePagePath(page, site) {
     case 'site_walk_photos':
       return withSite('/site_walk_photos_subcontractor');
     case 'sow_documents':
-      return withSite('/subcontractor/site_documents');
+      return withSite('/subcontractor/site_scope_of_work');
     case 'accounting_contacts':
       return '/subcontractor_home?accounting=1';
     default:
       return withSite(page?.path || '/subcontractor/site');
   }
+}
+
+
+export async function loadSubcontractorSiteDocuments(portalUrl, accessToken, siteName) {
+  const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
+  const response = await fetch(buildApiUrl(portalUrl, `${SITE_DOCUMENTS_PATH}${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function deleteSubcontractorSiteDocument(portalUrl, accessToken, { siteName, section, bucket, filename }) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  params.set('section', section || '');
+  params.set('bucket', bucket || '');
+  params.set('filename', filename || '');
+  const response = await fetch(buildApiUrl(portalUrl, `${SITE_DOCUMENT_DELETE_PATH}?${params.toString()}`), {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export function buildSiteDocumentDownloadPath({ siteName, section, bucket, filename }) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  params.set('section', section || '');
+  params.set('bucket', bucket || '');
+  params.set('filename', filename || '');
+  return `/subcontractor/site_documents/api/download?${params.toString()}`;
 }
