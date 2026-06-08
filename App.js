@@ -113,7 +113,6 @@ export default function App() {
         pages={route.pages}
         onBack={goHome}
         onHome={goHome}
-        onLogout={doLogout}
         onOpenPage={(page, project) => setRoute({ name: 'web', page, project, pages: route.pages })}
       />
     );
@@ -127,7 +126,6 @@ export default function App() {
         page={route.page}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
-        onLogout={doLogout}
       />
     );
   }

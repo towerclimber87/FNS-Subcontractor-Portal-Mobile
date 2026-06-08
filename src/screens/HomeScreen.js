@@ -91,11 +91,10 @@ export default function HomeScreen({ session, onLogout, onOpenProject }) {
                 onPress={() => onOpenProject(project, home?.pages || [])}
               >
                 <View style={styles.innerProjectCard}>
-                  <View style={styles.projectTopRow}>
+                  <View style={styles.projectRow}>
                     <View style={styles.projectIcon}><Text style={styles.projectIconText}>🏗️</Text></View>
-                    <View style={styles.statusPill}><Text style={styles.statusText}>Active</Text></View>
+                    <Text style={styles.projectName} numberOfLines={2}>{project.site_name}</Text>
                   </View>
-                  <Text style={styles.projectName} numberOfLines={2}>{project.site_name}</Text>
                 </View>
               </Pressable>
             ))}
@@ -132,18 +131,16 @@ const styles = StyleSheet.create({
   errorCard: { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
   errorText: { color: '#b91c1c', fontWeight: '800', textAlign: 'center' },
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  searchInput: { flex: 1, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, fontWeight: '800', color: colors.text },
+  searchInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 16, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, fontWeight: '800', color: colors.text },
   searchButton: { backgroundColor: colors.blue, borderRadius: 16, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#1d4ed8', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   searchButtonText: { color: '#fff', fontWeight: '900' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   projectCard: { padding: 6 },
-  innerProjectCard: { minHeight: 108, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 20, borderWidth: 1, borderColor: colors.line, padding: 14, justifyContent: 'space-between', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  projectTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  projectIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center', justifyContent: 'center' },
+  innerProjectCard: { minHeight: 90, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(191,219,254,0.85)', paddingHorizontal: 14, paddingVertical: 14, justifyContent: 'center', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  projectRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  projectIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center', justifyContent: 'center' },
   projectIconText: { fontSize: 20 },
-  statusPill: { backgroundColor: '#ecfdf5', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  statusText: { color: colors.green, fontWeight: '900', fontSize: 11 },
-  projectName: { color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 12 },
+  projectName: { flex: 1, color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '900' },
   emptyCard: { backgroundColor: '#fff', borderRadius: 22, borderWidth: 1, borderColor: colors.line, padding: 20 },
   emptyTitle: { color: colors.text, fontWeight: '900', fontSize: 18 },
   emptyCopy: { color: colors.muted, fontWeight: '600', lineHeight: 20, marginTop: 8 },

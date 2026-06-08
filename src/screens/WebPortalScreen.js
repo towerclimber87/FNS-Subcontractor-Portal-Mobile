@@ -4,14 +4,14 @@ import { WebView } from 'react-native-webview';
 import ScreenShell, { colors } from '../components/ScreenShell';
 import { buildWebSessionUrl, sitePagePath } from '../api/subcontractorApi';
 
-export default function WebPortalScreen({ session, project, page, onBack, onHome, onLogout }) {
+export default function WebPortalScreen({ session, project, page, onBack, onHome }) {
   const webRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const path = useMemo(() => sitePagePath(page, project), [page, project]);
   const url = useMemo(() => buildWebSessionUrl(session.portalUrl, session.access_token, path), [session, path]);
 
   return (
-    <ScreenShell title={page?.label || 'Subcontractor Page'} subtitle={project?.site_name || ''} onBack={onBack} onHome={onHome} onLogout={onLogout}>
+    <ScreenShell title={page?.label || 'Subcontractor Page'} subtitle={project?.site_name || ''} onBack={onBack} onHome={onHome}>
       <View style={styles.toolbar}>
         <Pressable style={({ pressed }) => [styles.reloadButton, pressed && styles.pressed]} onPress={() => webRef.current?.reload()}>
           <Text style={styles.reloadText}>Reload</Text>
@@ -39,7 +39,7 @@ export default function WebPortalScreen({ session, project, page, onBack, onHome
 }
 
 const styles = StyleSheet.create({
-  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', padding: 8, backgroundColor: '#eef5fc', borderBottomWidth: 1, borderBottomColor: colors.line },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', padding: 8, backgroundColor: 'rgba(238,245,252,0.86)', borderBottomWidth: 1, borderBottomColor: colors.line },
   reloadButton: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.line },
   reloadText: { color: colors.blue, fontWeight: '900' },
   webWrap: { flex: 1, backgroundColor: '#fff' },
