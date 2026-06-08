@@ -37,23 +37,24 @@ export default function ScreenShell({ title, subtitle, onBack, onHome, onLogout,
 }
 
 export const colors = {
-  bg: '#07111f',
-  bg2: '#0b1f3a',
+  bg: '#06111f',
+  bg2: '#0f2a44',
   card: '#ffffff',
   text: '#0f172a',
   muted: '#64748b',
   blue: '#2563eb',
   lightBlue: '#dbeafe',
-  line: '#dbe4f0',
+  line: '#d7e2ef',
+  orange: '#f59e0b',
   green: '#16a34a',
   red: '#dc2626',
-  pageBg: '#eef5ff',
+  pageBg: '#edf6ff',
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingBottom: 12, backgroundColor: colors.bg },
-  brandMark: { width: 34, height: 34, borderRadius: 13, backgroundColor: '#38bdf8', borderWidth: 2, borderColor: 'rgba(255,255,255,0.24)', alignItems: 'center', justifyContent: 'center' },
+  brandMark: { width: 34, height: 34, borderRadius: 13, backgroundColor: '#38bdf8', borderWidth: 2, borderColor: '#f59e0b', alignItems: 'center', justifyContent: 'center' },
   brandText: { color: '#06101f', fontSize: 18, fontWeight: '900', fontStyle: 'italic' },
   headerText: { flex: 1, minWidth: 0 },
   title: { color: '#fff', fontSize: 18, fontWeight: '900' },
@@ -63,6 +64,6 @@ const styles = StyleSheet.create({
   headerButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   logoutButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' },
   logoutText: { color: '#fecaca', fontWeight: '900', fontSize: 12 },
-  body: { flex: 1, backgroundColor: colors.pageBg, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden' },
+  body: { flex: 1, backgroundColor: colors.pageBg, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.18)' },
   pressed: { opacity: 0.72 },
 });

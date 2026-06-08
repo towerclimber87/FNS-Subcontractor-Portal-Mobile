@@ -98,18 +98,61 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
     }
   }
 
-  async function saveSessionWithBiometrics(nextSession, credentials = null) {
+  async function promptToEnableBiometricLogin() {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !isEnrolled) return false;
+
+      const wantsBiometrics = await new Promise((resolve) => {
+        Alert.alert(
+          `Enable ${biometricLabel}?`,
+          `Use ${biometricLabel} to sign in faster on this device next time.`,
+          [
+            { text: 'Not Now', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Enable', onPress: () => resolve(true) },
+          ],
+        );
+      });
+
+      if (!wantsBiometrics) return false;
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Enable ${biometricLabel} Login`,
+        fallbackLabel: 'Use Passcode',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
+      });
+
+      return Boolean(result.success);
+    } catch (error) {
+      console.warn('Unable to enable subcontractor biometric login:', error);
+      return false;
+    }
+  }
+
+  async function saveSessionWithBiometrics(nextSession, credentials = null, options = {}) {
     await savePortalUrl(nextSession.portalUrl || portalUrl);
     await saveSession(nextSession);
+
+    let savedBiometricCredentials = false;
     if (credentials?.email && credentials?.password) {
-      await saveBiometricLogin({
-        portalUrl: nextSession.portalUrl || portalUrl,
-        email: credentials.email,
-        password: credentials.password,
-        savedAt: new Date().toISOString(),
-      });
+      const shouldSave = options?.promptToEnable ? await promptToEnableBiometricLogin() : true;
+      if (shouldSave) {
+        await saveBiometricLogin({
+          portalUrl: nextSession.portalUrl || portalUrl,
+          email: credentials.email,
+          password: credentials.password,
+          savedAt: new Date().toISOString(),
+        });
+        savedBiometricCredentials = true;
+      }
     }
+
     setHasSavedLogin(true);
+    if (options?.promptToEnable && !savedBiometricCredentials) {
+      setMessage('');
+    }
     onLogin(nextSession);
   }
 
@@ -185,7 +228,7 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
     setBusy(true);
     try {
       const response = await loginSubcontractor(portalUrl, { email: cleanEmail, password });
-      await saveSessionWithBiometrics(buildSession(portalUrl, response), { email: cleanEmail, password });
+      await saveSessionWithBiometrics(buildSession(portalUrl, response), { email: cleanEmail, password }, { promptToEnable: true });
     } catch (error) {
       setInlineError(error?.message || 'Please check your email and password.');
     } finally {

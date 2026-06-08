@@ -46,15 +46,15 @@ export default function ProjectScreen({ project, pages, onBack, onHome, onLogout
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, paddingBottom: 36 },
-  projectHero: { backgroundColor: '#10233f', borderRadius: 24, borderWidth: 1, borderColor: '#1d4ed8', padding: 18, marginBottom: 14, shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
-  heroEyebrow: { color: '#86efac', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  content: { padding: 16, paddingBottom: 36, backgroundColor: colors.pageBg },
+  projectHero: { backgroundColor: '#10233f', borderRadius: 24, borderWidth: 1.5, borderColor: '#f59e0b', padding: 18, marginBottom: 14, shadowColor: '#0f172a', shadowOpacity: 0.14, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  heroEyebrow: { color: '#fdba74', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
   heroTitle: { color: '#fff', fontSize: 24, lineHeight: 30, fontWeight: '900', marginTop: 8 },
   heroCopy: { color: '#b9c8dc', fontWeight: '700', lineHeight: 20, marginTop: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   tileWrap: { padding: 6 },
-  tile: { minHeight: 106, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: colors.line, padding: 14, justifyContent: 'space-between' },
-  tileIconWrap: { width: 40, height: 40, borderRadius: 15, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  tile: { minHeight: 104, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 5, borderLeftColor: '#38bdf8', padding: 14, justifyContent: 'space-between', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  tileIconWrap: { width: 40, height: 40, borderRadius: 15, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa', alignItems: 'center', justifyContent: 'center' },
   tileIcon: { fontSize: 21 },
   tileText: { color: colors.text, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 12 },
   pressed: { opacity: 0.72 },
