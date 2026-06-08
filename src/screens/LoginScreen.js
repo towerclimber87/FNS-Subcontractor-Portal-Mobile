@@ -2,7 +2,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -20,11 +19,12 @@ import { loginSubcontractor } from '../api/subcontractorApi';
 import { savePortalUrl, saveSession } from '../utils/storage';
 
 export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const isTablet = width >= 768;
 
@@ -33,16 +33,26 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
     return `${portalUrl.replace(/\/+$/g, '')}/static/Logo/Logo/Logo.png`;
   }, [portalUrl]);
 
+  function showLoginError(message) {
+    const clean = String(message || '').trim();
+    if (/csrf/i.test(clean)) {
+      setErrorMessage('The subcontractor mobile login route is not fully enabled on the ERP yet. Please update the ERP backend files, restart the ERP, and try again.');
+      return;
+    }
+    setErrorMessage(clean || 'Please check your email and password.');
+  }
+
   async function handleLogin() {
     const cleanEmail = email.trim().toLowerCase();
+    setErrorMessage('');
 
     if (!portalUrl) {
-      Alert.alert('Portal Required', 'Please enter the company portal URL first.');
+      setErrorMessage('Please set the company portal first.');
       return;
     }
 
     if (!cleanEmail || !password) {
-      Alert.alert('Login Required', 'Please enter your subcontractor email and password.');
+      setErrorMessage('Please enter your subcontractor email and password.');
       return;
     }
 
@@ -54,7 +64,7 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
       await saveSession(fullSession);
       onLogin(fullSession);
     } catch (error) {
-      Alert.alert('Login Failed', error?.message || 'Please check your email and password.');
+      showLoginError(error?.message);
     } finally {
       setBusy(false);
     }
@@ -72,9 +82,9 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
             contentContainerStyle={[
               styles.erpContent,
               {
-                paddingHorizontal: isTablet ? 48 : 22,
-                paddingVertical: isTablet ? 54 : 28,
-                minHeight: height,
+                paddingHorizontal: isTablet ? 48 : 24,
+                paddingTop: isTablet ? 58 : 24,
+                paddingBottom: isTablet ? 90 : 64,
               },
             ]}
             keyboardShouldPersistTaps="handled"
@@ -84,28 +94,28 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
               style={[
                 styles.loginCard,
                 {
-                  maxWidth: isTablet ? 560 : 420,
-                  paddingHorizontal: isTablet ? 42 : 24,
-                  paddingVertical: isTablet ? 40 : 28,
+                  maxWidth: isTablet ? 540 : 460,
+                  paddingHorizontal: isTablet ? 48 : 30,
+                  paddingTop: isTablet ? 56 : 42,
+                  paddingBottom: isTablet ? 48 : 34,
                 },
               ]}
             >
               {!!logoUrl && (
                 <Image
                   source={{ uri: logoUrl }}
-                  style={[styles.companyLogo, { width: isTablet ? 310 : 245 }]}
+                  style={[styles.companyLogo, { width: isTablet ? 240 : 220 }]}
                   resizeMode="contain"
                 />
               )}
 
               <Text style={styles.loginTitle}>Subcontractor Login</Text>
 
-              <View style={styles.portalPill}>
-                <Text style={styles.portalPillLabel}>Portal</Text>
-                <Text style={styles.portalPillText} numberOfLines={1}>
-                  {portalUrl?.replace(/^https?:\/\//i, '')}
-                </Text>
-              </View>
+              {!!errorMessage && (
+                <View style={styles.errorBanner}>
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              )}
 
               <View style={styles.formGroup}>
                 <Text style={styles.erpLabel}>Email</Text>
@@ -118,7 +128,10 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
                   keyboardType="email-address"
                   textContentType="username"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (errorMessage) setErrorMessage('');
+                  }}
                   returnKeyType="next"
                   editable={!busy}
                 />
@@ -133,7 +146,10 @@ export default function LoginScreen({ portalUrl, onChangePortal, onLogin }) {
                   secureTextEntry
                   textContentType="password"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (errorMessage) setErrorMessage('');
+                  }}
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
                   editable={!busy}
@@ -161,12 +177,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   keyboardWrap: { flex: 1 },
   erpBackground: { flex: 1, backgroundColor: '#f4f6ff' },
-  erpContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f4f6ff',
-  },
+  erpContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f4f6ff' },
   loginCard: {
     width: '100%',
     backgroundColor: 'rgba(255,255,255,0.96)',
@@ -180,33 +191,26 @@ const styles = StyleSheet.create({
     elevation: 8,
     alignItems: 'center',
   },
-  companyLogo: { height: 120, marginBottom: 22 },
+  companyLogo: { height: 120, marginBottom: 28 },
   loginTitle: {
     fontSize: 26,
     fontWeight: '700',
     color: '#1c1c29',
-    marginBottom: 18,
+    marginBottom: 28,
     textAlign: 'center',
   },
-  portalPill: {
+  errorBanner: {
     width: '100%',
     borderRadius: 14,
-    backgroundColor: '#eef3ff',
     borderWidth: 1,
-    borderColor: '#dbe3ff',
+    borderColor: '#fecaca',
+    backgroundColor: '#fef2f2',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 22,
+    paddingVertical: 11,
+    marginTop: -12,
+    marginBottom: 18,
   },
-  portalPillLabel: {
-    color: '#6b7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 2,
-  },
-  portalPillText: { color: '#1c1c29', fontSize: 14, fontWeight: '800' },
+  errorText: { color: '#991b1b', fontSize: 13, fontWeight: '800', lineHeight: 19, textAlign: 'center' },
   formGroup: { width: '100%', marginBottom: 18 },
   erpLabel: { color: '#33334d', fontSize: 14, fontWeight: '700', marginBottom: 7 },
   erpInput: {

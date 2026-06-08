@@ -29,8 +29,13 @@ async function parseJsonResponse(response) {
     }
   }
   if (!response.ok) {
-    const detail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
-    throw new Error(detail);
+    let detail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
+    if (Array.isArray(detail)) {
+      detail = detail.map((item) => item?.msg || item?.message || JSON.stringify(item)).join('\n');
+    } else if (typeof detail === 'object' && detail !== null) {
+      detail = detail.message || detail.msg || JSON.stringify(detail);
+    }
+    throw new Error(String(detail));
   }
   return data || {};
 }
