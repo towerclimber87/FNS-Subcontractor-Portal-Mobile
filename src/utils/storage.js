@@ -32,3 +32,9 @@ export async function clearSession() {
     await SecureStore.deleteItemAsync(SESSION_KEY);
   } catch (_error) {}
 }
+
+export async function clearPortalUrl() {
+  try {
+    await AsyncStorage.removeItem(PORTAL_URL_KEY);
+  } catch (_error) {}
+}

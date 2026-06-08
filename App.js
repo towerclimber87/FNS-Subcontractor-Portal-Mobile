@@ -1,37 +1,89 @@
 import { useEffect, useState } from 'react';
 import { Alert, View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import PortalSetupScreen from './src/screens/PortalSetupScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectScreen from './src/screens/ProjectScreen';
 import WebPortalScreen from './src/screens/WebPortalScreen';
-import { clearSession, loadSession } from './src/utils/storage';
+import { clearPortalUrl, clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
 import { logoutSubcontractor } from './src/api/subcontractorApi';
 import { colors } from './src/components/ScreenShell';
 
 export default function App() {
   const [booting, setBooting] = useState(true);
+  const [savedPortalUrl, setSavedPortalUrl] = useState('');
   const [session, setSession] = useState(null);
   const [route, setRoute] = useState({ name: 'home' });
 
   useEffect(() => {
     let active = true;
-    loadSession().then((saved) => {
-      if (!active) return;
-      if (saved?.access_token && saved?.portalUrl) setSession(saved);
-    }).finally(() => active && setBooting(false));
-    return () => { active = false; };
+
+    async function boot() {
+      try {
+        const [portalUrl, savedSession] = await Promise.all([
+          loadPortalUrl(),
+          loadSession(),
+        ]);
+
+        if (!active) return;
+
+        const sessionPortalUrl = savedSession?.portalUrl || '';
+        const nextPortalUrl = portalUrl || sessionPortalUrl || '';
+
+        if (nextPortalUrl) {
+          setSavedPortalUrl(nextPortalUrl);
+          if (!portalUrl) await savePortalUrl(nextPortalUrl);
+        }
+
+        if (savedSession?.access_token && nextPortalUrl) {
+          setSession({ ...savedSession, portalUrl: nextPortalUrl });
+        }
+      } finally {
+        if (active) setBooting(false);
+      }
+    }
+
+    boot();
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  async function handlePortalSaved(portalUrl) {
+    await savePortalUrl(portalUrl);
+    setSavedPortalUrl(portalUrl);
+    setSession(null);
+    setRoute({ name: 'home' });
+  }
+
+  async function handleChangePortal() {
+    try {
+      await clearSession();
+      await clearPortalUrl();
+      setSavedPortalUrl('');
+      setSession(null);
+      setRoute({ name: 'home' });
+    } catch (error) {
+      Alert.alert('Reset Failed', 'The saved portal URL could not be removed.');
+      console.warn('Failed to remove subcontractor portal URL:', error);
+    }
+  }
 
   async function doLogout() {
     Alert.alert('Log Out', 'Log out of the subcontractor portal?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: async () => {
-        await logoutSubcontractor(session?.portalUrl, session?.access_token);
-        await clearSession();
-        setSession(null);
-        setRoute({ name: 'home' });
-      } },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logoutSubcontractor(session?.portalUrl, session?.access_token);
+          await clearSession();
+          setSession(null);
+          setRoute({ name: 'home' });
+        },
+      },
     ]);
   }
 
@@ -45,20 +97,65 @@ export default function App() {
     );
   }
 
-  if (!session) return <LoginScreen onLogin={(s) => { setSession(s); setRoute({ name: 'home' }); }} />;
+  if (!savedPortalUrl) {
+    return <PortalSetupScreen onPortalSaved={handlePortalSaved} />;
+  }
+
+  if (!session) {
+    return (
+      <LoginScreen
+        portalUrl={savedPortalUrl}
+        onChangePortal={handleChangePortal}
+        onLogin={(s) => {
+          setSession(s);
+          setRoute({ name: 'home' });
+        }}
+      />
+    );
+  }
 
   if (route.name === 'project') {
-    return <ProjectScreen project={route.project} pages={route.pages} onBack={() => setRoute({ name: 'home' })} onLogout={doLogout} onOpenPage={(page, project) => setRoute({ name: 'web', page, project, pages: route.pages })} />;
+    return (
+      <ProjectScreen
+        project={route.project}
+        pages={route.pages}
+        onBack={() => setRoute({ name: 'home' })}
+        onLogout={doLogout}
+        onOpenPage={(page, project) => setRoute({ name: 'web', page, project, pages: route.pages })}
+      />
+    );
   }
 
   if (route.name === 'web') {
-    return <WebPortalScreen session={session} project={route.project} page={route.page} onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })} onHome={() => setRoute({ name: 'home' })} onLogout={doLogout} />;
+    return (
+      <WebPortalScreen
+        session={session}
+        project={route.project}
+        page={route.page}
+        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onHome={() => setRoute({ name: 'home' })}
+        onLogout={doLogout}
+      />
+    );
   }
 
-  return <HomeScreen session={session} onLogout={doLogout} onOpenProject={(project, pages) => setRoute({ name: 'project', project, pages })} />;
+  return (
+    <HomeScreen
+      session={session}
+      onLogout={doLogout}
+      onOpenProject={(project, pages) => setRoute({ name: 'project', project, pages })}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-  boot: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, gap: 14, padding: 20 },
+  boot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+    gap: 14,
+    padding: 20,
+  },
   bootText: { color: '#fff', fontWeight: '900', textAlign: 'center' },
 });
