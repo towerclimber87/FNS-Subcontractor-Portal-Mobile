@@ -12,22 +12,18 @@ const FALLBACK_PAGES = [
   { key: 'sow_documents', label: 'SOW / Documents', icon: '📄' },
 ];
 
-export default function ProjectScreen({ project, pages, onBack, onLogout, onOpenPage }) {
+export default function ProjectScreen({ project, pages, onBack, onHome, onLogout, onOpenPage }) {
   const { width } = useWindowDimensions();
-  const columns = width >= 900 ? 3 : width >= 620 ? 2 : 1;
+  const columns = width >= 980 ? 3 : width >= 620 ? 2 : 1;
   const visiblePages = Array.isArray(pages) && pages.length ? pages : FALLBACK_PAGES;
 
   return (
-    <ScreenShell title="Project Tools" subtitle={project?.site_name || 'Selected project'} rightLabel="Logout" onRightPress={onLogout}>
+    <ScreenShell title="Project Tools" subtitle={project?.site_name || 'Selected project'} onBack={onBack} onHome={onHome} onLogout={onLogout}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable style={({ pressed }) => [styles.backButton, pressed && styles.pressed]} onPress={onBack}>
-          <Text style={styles.backText}>← Back to Projects</Text>
-        </Pressable>
-
         <View style={styles.projectHero}>
           <Text style={styles.heroEyebrow}>Active Construction Project</Text>
           <Text style={styles.heroTitle}>{project?.site_name || 'Project'}</Text>
-          <Text style={styles.heroCopy}>Use the tools below to open the same subcontractor pages available in the web portal. Permissions are loaded from the ERP subcontractor permission matrix.</Text>
+          <Text style={styles.heroCopy}>Open the subcontractor tools available for this project.</Text>
         </View>
 
         <View style={styles.grid}>
@@ -38,9 +34,8 @@ export default function ProjectScreen({ project, pages, onBack, onLogout, onOpen
               onPress={() => onOpenPage(page, project)}
             >
               <View style={styles.tile}>
-                <Text style={styles.tileIcon}>{page.icon || '•'}</Text>
+                <View style={styles.tileIconWrap}><Text style={styles.tileIcon}>{page.icon || '•'}</Text></View>
                 <Text style={styles.tileText}>{page.label}</Text>
-                <Text style={styles.tileHint}>Open</Text>
               </View>
             </Pressable>
           ))}
@@ -52,17 +47,15 @@ export default function ProjectScreen({ project, pages, onBack, onLogout, onOpen
 
 const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 36 },
-  backButton: { alignSelf: 'flex-start', backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: colors.line, marginBottom: 12 },
-  backText: { color: colors.blue, fontWeight: '900' },
-  projectHero: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: colors.line, padding: 18, marginBottom: 14 },
-  heroEyebrow: { color: colors.green, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
-  heroTitle: { color: colors.text, fontSize: 25, lineHeight: 31, fontWeight: '900', marginTop: 8 },
-  heroCopy: { color: colors.muted, fontWeight: '600', lineHeight: 20, marginTop: 8 },
+  projectHero: { backgroundColor: '#10233f', borderRadius: 24, borderWidth: 1, borderColor: '#1d4ed8', padding: 18, marginBottom: 14, shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  heroEyebrow: { color: '#86efac', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+  heroTitle: { color: '#fff', fontSize: 24, lineHeight: 30, fontWeight: '900', marginTop: 8 },
+  heroCopy: { color: '#b9c8dc', fontWeight: '700', lineHeight: 20, marginTop: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   tileWrap: { padding: 6 },
-  tile: { minHeight: 142, backgroundColor: '#fff', borderRadius: 22, borderWidth: 1, borderColor: colors.line, padding: 16, justifyContent: 'space-between' },
-  tileIcon: { fontSize: 30 },
-  tileText: { color: colors.text, fontSize: 17, fontWeight: '900', lineHeight: 22 },
-  tileHint: { color: colors.blue, fontWeight: '900' },
+  tile: { minHeight: 106, backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: colors.line, padding: 14, justifyContent: 'space-between' },
+  tileIconWrap: { width: 40, height: 40, borderRadius: 15, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  tileIcon: { fontSize: 21 },
+  tileText: { color: colors.text, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 12 },
   pressed: { opacity: 0.72 },
 });

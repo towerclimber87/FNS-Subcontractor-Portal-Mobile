@@ -1,6 +1,7 @@
 const SERVER_INFO_PATH = '/mobile/subcontractor/api/server-info';
 const LOGIN_PATH = '/mobile/subcontractor/api/auth/login';
 const LOGOUT_PATH = '/mobile/subcontractor/api/auth/logout';
+const FORGOT_PASSWORD_PATH = '/mobile/subcontractor/api/auth/forgot-password';
 const HOME_PATH = '/mobile/subcontractor/api/home';
 const PROJECTS_PATH = '/mobile/subcontractor/api/projects';
 const SESSION_WEBVIEW_PATH = '/mobile/subcontractor/api/session';
@@ -29,13 +30,8 @@ async function parseJsonResponse(response) {
     }
   }
   if (!response.ok) {
-    let detail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
-    if (Array.isArray(detail)) {
-      detail = detail.map((item) => item?.msg || item?.message || JSON.stringify(item)).join('\n');
-    } else if (typeof detail === 'object' && detail !== null) {
-      detail = detail.message || detail.msg || JSON.stringify(detail);
-    }
-    throw new Error(String(detail));
+    const detail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
+    throw new Error(detail);
   }
   return data || {};
 }
@@ -59,6 +55,15 @@ export async function loginSubcontractor(portalUrl, { email, password }) {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, user_type: 'Subcontractor' }),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function forgotPasswordSubcontractor(portalUrl, { email }) {
+  const response = await fetch(buildApiUrl(portalUrl, FORGOT_PASSWORD_PATH), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
   });
   return parseJsonResponse(response);
 }

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import PortalSetupScreen from './src/screens/PortalSetupScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectScreen from './src/screens/ProjectScreen';
 import WebPortalScreen from './src/screens/WebPortalScreen';
-import { clearPortalUrl, clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
+import { clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
 import { logoutSubcontractor } from './src/api/subcontractorApi';
 import { colors } from './src/components/ScreenShell';
 
@@ -59,38 +59,30 @@ export default function App() {
   }
 
   async function handleChangePortal() {
-    try {
-      await clearSession();
-      await clearPortalUrl();
-      setSavedPortalUrl('');
-      setSession(null);
-      setRoute({ name: 'home' });
-    } catch (error) {
-      Alert.alert('Reset Failed', 'The saved portal URL could not be removed.');
-      console.warn('Failed to remove subcontractor portal URL:', error);
-    }
+    const { clearPortalUrl } = await import('./src/utils/storage');
+    await clearSession();
+    await clearPortalUrl();
+    setSavedPortalUrl('');
+    setSession(null);
+    setRoute({ name: 'home' });
   }
 
   async function doLogout() {
-    Alert.alert('Log Out', 'Log out of the subcontractor portal?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logoutSubcontractor(session?.portalUrl, session?.access_token);
-          await clearSession();
-          setSession(null);
-          setRoute({ name: 'home' });
-        },
-      },
-    ]);
+    const currentSession = session;
+    setSession(null);
+    setRoute({ name: 'home' });
+    await clearSession();
+    await logoutSubcontractor(currentSession?.portalUrl, currentSession?.access_token);
+  }
+
+  function goHome() {
+    setRoute({ name: 'home' });
   }
 
   if (booting) {
     return (
       <View style={styles.boot}>
-        <StatusBar style="light" />
+        <StatusBar style="light" backgroundColor={colors.bg} translucent={false} />
         <ActivityIndicator size="large" color="#fff" />
         <Text style={styles.bootText}>Opening FNS Subcontractor Portal…</Text>
       </View>
@@ -119,7 +111,8 @@ export default function App() {
       <ProjectScreen
         project={route.project}
         pages={route.pages}
-        onBack={() => setRoute({ name: 'home' })}
+        onBack={goHome}
+        onHome={goHome}
         onLogout={doLogout}
         onOpenPage={(page, project) => setRoute({ name: 'web', page, project, pages: route.pages })}
       />
@@ -133,7 +126,7 @@ export default function App() {
         project={route.project}
         page={route.page}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
-        onHome={() => setRoute({ name: 'home' })}
+        onHome={goHome}
         onLogout={doLogout}
       />
     );

@@ -19,7 +19,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "FNS Subcontractor Portal uses the camera to attach site photos and tracker photos.",
-        "NSPhotoLibraryUsageDescription": "FNS Subcontractor Portal can attach selected photos to site records."
+        "NSPhotoLibraryUsageDescription": "FNS Subcontractor Portal can attach selected photos to site records.",
+        "NSFaceIDUsageDescription": "FNS Subcontractor Portal uses Face ID to securely unlock your saved subcontractor login."
       }
     },
     "android": {
