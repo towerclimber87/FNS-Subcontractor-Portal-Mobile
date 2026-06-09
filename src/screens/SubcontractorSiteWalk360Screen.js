@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { WebView } from 'react-native-webview';
 import ScreenShell, { colors } from '../components/ScreenShell';
 import { loadSubcontractorSiteWalk360, loadSubcontractorSiteWalk360Annotations, subcontractorMediaUrl } from '../api/subcontractorApi';
