@@ -9,6 +9,7 @@ import WebPortalScreen from './src/screens/WebPortalScreen';
 import SowDocumentsScreen from './src/screens/SowDocumentsScreen';
 import MaterialTrackerScreen from './src/screens/MaterialTrackerScreen';
 import SiteDailyTrackerScreen from './src/screens/SiteDailyTrackerScreen';
+import SubcontractorSiteWalkListScreen from './src/screens/SubcontractorSiteWalkListScreen';
 import { clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
 import { logoutSubcontractor } from './src/api/subcontractorApi';
 import { colors } from './src/components/ScreenShell';
@@ -116,7 +117,7 @@ export default function App() {
         pages={route.pages}
         onBack={goHome}
         onHome={goHome}
-        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : page?.key === 'material_tracker' ? 'materialTracker' : page?.key === 'site_daily_tracker' ? 'siteDailyTracker' : 'web', page, project, pages: route.pages })}
+        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : page?.key === 'material_tracker' ? 'materialTracker' : page?.key === 'site_daily_tracker' ? 'siteDailyTracker' : page?.key === 'site_walk_redlines' ? 'siteWalkRedlines' : page?.key === 'site_walk_photos' ? 'siteWalkPhotos' : page?.key === 'site_walk_360' ? 'siteWalk360' : 'web', page, project, pages: route.pages })}
       />
     );
   }
@@ -154,6 +155,20 @@ export default function App() {
         session={session}
         project={route.project}
         page={route.page}
+        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onHome={goHome}
+      />
+    );
+  }
+
+
+  if (route.name === 'siteWalkRedlines' || route.name === 'siteWalkPhotos' || route.name === 'siteWalk360') {
+    return (
+      <SubcontractorSiteWalkListScreen
+        session={session}
+        project={route.project}
+        page={route.page}
+        mode={route.name === 'siteWalkRedlines' ? 'redlines' : route.name === 'siteWalk360' ? '360' : 'photos'}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
       />

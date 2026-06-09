@@ -10,6 +10,9 @@ const SITE_DOCUMENTS_PATH = '/mobile/subcontractor/api/site-documents/files';
 const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/delete';
 const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-tracker';
 const SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH = '/mobile/subcontractor/api/site-daily-tracker';
+const SUBCONTRACTOR_SITE_WALK_PHOTOS_PATH = '/mobile/subcontractor/api/site-walk-photos';
+const SUBCONTRACTOR_SITE_WALK_REDLINES_PATH = '/mobile/subcontractor/api/site-walk-redlines';
+const SUBCONTRACTOR_SITE_WALK_360_PATH = '/mobile/subcontractor/api/site-walk-360';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -129,6 +132,8 @@ export function sitePagePath(page, site) {
       return withSite('/subcontractor_material_tracker');
     case 'site_walk_redlines':
       return withSite('/site_walk_redlines_subcontractor');
+    case 'site_walk_360':
+      return withSite('/site_walk_360')
     case 'site_walk_photos':
       return withSite('/site_walk_photos_subcontractor');
     case 'sow_documents':
@@ -244,6 +249,57 @@ export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, access
     method: 'POST',
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
     body: form,
+  });
+  return parseJsonResponse(response);
+}
+
+
+function tokenizedMediaUrl(portalUrl, rawUrl, accessToken) {
+  const raw = String(rawUrl || '').trim();
+  if (!raw) return '';
+  const absolute = /^[a-z][a-z0-9+.-]*:/i.test(raw)
+    ? raw
+    : `${normalizePortalUrl(portalUrl)}${raw.startsWith('/') ? raw : `/${raw}`}`;
+  if (!accessToken || absolute.startsWith('data:') || absolute.startsWith('file:')) return absolute;
+  const joiner = absolute.includes('?') ? '&' : '?';
+  return `${absolute}${joiner}access_token=${encodeURIComponent(accessToken)}`;
+}
+
+export { tokenizedMediaUrl };
+
+export async function loadSubcontractorSiteWalkPhotos(portalUrl, accessToken, { siteName, q = '', tag = '', sitewalk = '' } = {}) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  if (q) params.set('q', q);
+  if (tag) params.set('tag', tag);
+  if (sitewalk) params.set('sitewalk', sitewalk);
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_WALK_PHOTOS_PATH}?${params.toString()}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function loadSubcontractorSiteWalkRedlines(portalUrl, accessToken, { siteName, sitewalkDesc = '' } = {}) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  if (sitewalkDesc) params.set('sitewalk_desc', sitewalkDesc);
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_WALK_REDLINES_PATH}?${params.toString()}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function loadSubcontractorSiteWalk360Photos(portalUrl, accessToken, { siteName, q = '', tag = '', sitewalk = '' } = {}) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  if (q) params.set('q', q);
+  if (tag) params.set('tag', tag);
+  if (sitewalk) params.set('sitewalk', sitewalk);
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_WALK_360_PATH}?${params.toString()}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
   });
   return parseJsonResponse(response);
 }

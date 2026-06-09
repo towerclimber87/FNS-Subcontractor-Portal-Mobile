@@ -3,8 +3,9 @@ import ScreenShell, { colors } from '../components/ScreenShell';
 
 const FALLBACK_PAGES = [
   { key: 'sow_documents', label: 'SOW Documents', icon: '📄' },
-  { key: 'site_walk_redlines', label: 'Site Walk Redlines', icon: '✏️' },
+  { key: 'site_walk_redlines', label: 'PDF Editor', icon: '📐' },
   { key: 'site_walk_photos', label: 'Site Walk Photos', icon: '🖼️' },
+  { key: 'site_walk_360', label: 'Site Walk 360 Photos', icon: '🌐' },
   { key: 'daily_reports', label: 'Daily Reports', icon: '📝' },
   { key: 'photo_repository', label: 'Photo Repository', icon: '📷' },
   { key: 'site_cds', label: 'Site CDs', icon: '🗂️' },
@@ -17,6 +18,8 @@ const HIDDEN_KEYS = new Set(['accounting_contacts']);
 function cleanPage(page) {
   if (!page || HIDDEN_KEYS.has(page.key)) return null;
   if (page.key === 'sow_documents') return { ...page, label: 'SOW Documents' };
+  if (page.key === 'site_walk_redlines') return { ...page, label: 'PDF Editor', icon: page.icon || '📐' };
+  if (page.key === 'site_walk_360') return { ...page, label: 'Site Walk 360 Photos', icon: page.icon || '🌐' };
   return page;
 }
 
