@@ -48,11 +48,43 @@ function fallback360FromPin(pin) {
     tag: clean(pin?.tag),
     sitewalk_desc: clean(pin?.sitewalk_desc || pin?.site_walk_desc),
     note: clean(pin?.note || pin?.text),
+    redline_pin_id: pin?.id || pin?.redline_pin_id || null,
+    redline_page_id: pin?.page_id || pin?.redline_page_id || null,
     public_url: url || thumb,
     url: url || thumb,
     thumb_url: thumb || url,
     __from_redline_pin: true,
   };
+}
+
+function sameCleanValue(a, b) {
+  const left = clean(a);
+  const right = clean(b);
+  return !!left && !!right && left === right;
+}
+
+function urlsMatch(a, b) {
+  const left = clean(a).split('?')[0];
+  const right = clean(b).split('?')[0];
+  if (!left || !right) return false;
+  return left === right || left.endsWith(right) || right.endsWith(left);
+}
+
+function findServer360ForRedlinePin(serverItems, pin) {
+  if (!Array.isArray(serverItems) || !serverItems.length || !pin) return null;
+  const photoId = pin360Id(pin);
+  const pinId = clean(pin?.id || pin?.redline_pin_id);
+  const pageId = clean(pin?.page_id || pin?.redline_page_id);
+  const pinUrl = pin360Url(pin);
+  const pinThumb = pin360Thumb(pin);
+
+  return serverItems.find((item) => sameCleanValue(item?.id, photoId))
+    || serverItems.find((item) => sameCleanValue(item?.redline_pin_id, pinId))
+    || serverItems.find((item) => sameCleanValue(item?.linked_redline_pin_id, pinId))
+    || serverItems.find((item) => sameCleanValue(item?.pin_id, pinId))
+    || serverItems.find((item) => sameCleanValue(item?.redline_page_id, pageId) && urlsMatch(full('', item), pinUrl || pinThumb))
+    || serverItems.find((item) => urlsMatch(full('', item), pinUrl || pinThumb) || urlsMatch(media('', item), pinThumb || pinUrl))
+    || null;
 }
 
 function safeJson(value) {
@@ -129,17 +161,19 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
     if(!selectedSite)return;
     if(!silent)setLoading(true);
     try{
-      const data=await loadSubcontractorSiteWalk360(session.portalUrl,session.access_token,{siteName:selectedSite,sitewalk:selectedSitewalk,tag,q:query});
+      const requestedSitewalk = selectedSitewalk || initialSitewalk || '';
+      const data=await loadSubcontractorSiteWalk360(session.portalUrl,session.access_token,{siteName:selectedSite,sitewalk:requestedSitewalk,tag,q:query});
       const walks=Array.isArray(data?.sitewalks)?data.sitewalks:[];
       setSitewalks(walks);
-      if(!selectedSitewalk && initialSitewalk) setSelectedSitewalk(initialSitewalk);
+      if(!selectedSitewalk && requestedSitewalk) setSelectedSitewalk(requestedSitewalk);
       else if(!selectedSitewalk&&walks.length)setSelectedSitewalk(clean(walks[0]?.value||walks[0]?.sitewalk_desc||walks[0]));
       const serverItems=Array.isArray(data?.items)?data.items:[];
       const fallback=fallback360FromPin(initialRedline360Pin);
-      const merged=fallback && !serverItems.some((item)=>String(item?.id||'')===String(fallback.id)) ? [fallback,...serverItems] : serverItems;
+      const serverMatch=findServer360ForRedlinePin(serverItems, initialRedline360Pin);
+      const merged=fallback && !serverMatch && !serverItems.some((item)=>String(item?.id||'')===String(fallback.id)) ? [fallback,...serverItems] : serverItems;
       setItems(merged);
       if(initial360Id || fallback){
-        const match=merged.find((item)=>String(item?.id||'')===String(initial360Id)) || fallback || null;
+        const match=serverMatch || merged.find((item)=>String(item?.id||'')===String(initial360Id)) || fallback || null;
         if(match) setSelected(match);
       }
     }catch(e){Alert.alert('SiteWalk 360',e?.message||'Unable to load SiteWalk 360 photos.')}
