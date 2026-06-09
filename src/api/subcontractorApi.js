@@ -111,10 +111,15 @@ export function buildWebSessionUrl(portalUrl, accessToken, nextPath) {
 
 export function sitePagePath(page, site) {
   const siteName = site?.site_name || site?.name || '';
+  const siteId = site?.site_id || site?.id || '';
   const subName = site?.subcontractor_name || '';
   const siteQ = encodeURIComponent(siteName);
+  const siteIdQ = encodeURIComponent(siteId);
   const subQ = encodeURIComponent(subName);
   const withSite = (base) => `${base}${base.includes('?') ? '&' : '?'}site_name=${siteQ}${subName ? `&subcontractor_name=${subQ}` : ''}`;
+  const withSiteId = (base) => siteIdQ
+    ? `${base}${base.includes('?') ? '&' : '?'}site_id=${siteIdQ}`
+    : withSite(base);
 
   switch (page?.key) {
     case 'site_daily_tracker':
@@ -130,9 +135,9 @@ export function sitePagePath(page, site) {
     case 'site_walk_redlines':
       return withSite('/site_walk_redlines_subcontractor');
     case 'site_walk_photos':
-      return withSite('/site_walk_photos_subcontractor');
+      return withSiteId('/site_walk_photos_subcontractor');
     case 'site_walk_360':
-      return withSite('/site_walk_360');
+      return withSiteId('/site_walk_360_subcontractor');
     case 'sow_documents':
       return withSite('/subcontractor/site_scope_of_work');
     case 'accounting_contacts':
