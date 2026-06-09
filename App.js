@@ -85,21 +85,6 @@ export default function App() {
     setRoute({ name: 'home' });
   }
 
-  function backToPdfOrProject(currentRoute) {
-    if (currentRoute?.redlineViewportState || currentRoute?.redlineReturnSnapshot) {
-      setRoute({
-        name: 'pdfEditor',
-        project: currentRoute.project,
-        page: { key: 'site_walk_redlines', label: 'PDF Editor' },
-        pages: currentRoute.pages,
-        initialViewportState: currentRoute.redlineViewportState || null,
-        initialReturnSnapshot: currentRoute.redlineReturnSnapshot || null,
-      });
-      return;
-    }
-    setRoute({ name: 'project', project: currentRoute.project, pages: currentRoute.pages });
-  }
-
   if (booting) {
     return (
       <View style={styles.boot}>
@@ -189,35 +174,49 @@ export default function App() {
         page={route.page}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
-        initialViewportState={route.initialViewportState}
-        initialReturnSnapshot={route.initialReturnSnapshot}
         onOpenPhotoPin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalkPhotos', project: route.project, page: { key: 'site_walk_photos', label: 'SiteWalk Photos' }, pages: route.pages, initialRedlinePhotoPin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
         onOpen360Pin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalk360', project: route.project, page: { key: 'site_walk_360', label: 'SiteWalk 360 Photos' }, pages: route.pages, initialRedline360Pin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
+        initialViewportState={route.redlineViewportState}
+        initialReturnSnapshot={route.redlineReturnSnapshot}
       />
     );
   }
 
   if (route.name === 'siteWalkPhotos') {
+    const backToPdf = () => {
+      if (route.redlineViewportState || route.redlineReturnSnapshot) {
+        setRoute({ name: 'pdfEditor', project: route.project, page: { key: 'site_walk_redlines', label: 'PDF Editor' }, pages: route.pages, redlineViewportState: route.redlineViewportState, redlineReturnSnapshot: route.redlineReturnSnapshot });
+        return;
+      }
+      setRoute({ name: 'project', project: route.project, pages: route.pages });
+    };
     return (
       <SubcontractorSiteWalkPhotosScreen
         session={session}
         project={route.project}
         page={route.page}
         initialRedlinePhotoPin={route.initialRedlinePhotoPin}
-        onBack={() => backToPdfOrProject(route)}
+        onBack={backToPdf}
         onHome={goHome}
       />
     );
   }
 
   if (route.name === 'siteWalk360') {
+    const backToPdf = () => {
+      if (route.redlineViewportState || route.redlineReturnSnapshot) {
+        setRoute({ name: 'pdfEditor', project: route.project, page: { key: 'site_walk_redlines', label: 'PDF Editor' }, pages: route.pages, redlineViewportState: route.redlineViewportState, redlineReturnSnapshot: route.redlineReturnSnapshot });
+        return;
+      }
+      setRoute({ name: 'project', project: route.project, pages: route.pages });
+    };
     return (
       <SubcontractorSiteWalk360Screen
         session={session}
         project={route.project}
         page={route.page}
         initialRedline360Pin={route.initialRedline360Pin}
-        onBack={() => backToPdfOrProject(route)}
+        onBack={backToPdf}
         onHome={goHome}
       />
     );
