@@ -167,8 +167,17 @@ export async function deleteSubcontractorSiteDocument(portalUrl, accessToken, { 
   return parseJsonResponse(response);
 }
 
-export async function loadSubcontractorMaterialTracker(portalUrl, accessToken, siteName) {
-  const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
+export async function loadSubcontractorMaterialTracker(portalUrl, accessToken, siteOrOptions) {
+  const params = new URLSearchParams();
+  if (siteOrOptions && typeof siteOrOptions === 'object') {
+    const siteName = siteOrOptions.siteName || siteOrOptions.site_name || siteOrOptions.name || '';
+    const siteId = siteOrOptions.siteId || siteOrOptions.site_id || siteOrOptions.id || '';
+    if (siteName) params.set('site_name', siteName);
+    if (siteId) params.set('site_id', String(siteId));
+  } else {
+    params.set('site_name', siteOrOptions || '');
+  }
+  const qs = params.toString() ? `?${params.toString()}` : '';
   const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_MATERIAL_TRACKER_PATH}${qs}`), {
     method: 'GET',
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },

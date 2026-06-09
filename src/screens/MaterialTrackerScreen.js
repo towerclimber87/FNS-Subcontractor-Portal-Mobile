@@ -351,6 +351,7 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
   const portalUrl = session?.portalUrl;
   const token = session?.access_token;
   const selectedSiteName = siteName(project);
+  const selectedSiteId = siteId(project);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -374,7 +375,7 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
     }
     if (!silent) setLoading(true);
     try {
-      const response = await loadSubcontractorMaterialTracker(portalUrl, token, selectedSiteName);
+      const response = await loadSubcontractorMaterialTracker(portalUrl, token, { siteName: selectedSiteName, siteId: selectedSiteId });
       setBootstrap(response || {});
       setItems(asArray(response?.items).map(itemFromServer));
     } catch (error) {
@@ -383,7 +384,7 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
       setLoading(false);
       setRefreshing(false);
     }
-  }, [portalUrl, token, selectedSiteName]);
+  }, [portalUrl, token, selectedSiteName, selectedSiteId]);
 
   useEffect(() => { load({ silent: false }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
