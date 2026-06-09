@@ -180,6 +180,25 @@ export async function updateSubcontractorMaterialTrackerItem(portalUrl, accessTo
   return parseJsonResponse(response);
 }
 
+
+export async function createSubcontractorMaterialTrackerItem(portalUrl, accessToken, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_MATERIAL_TRACKER_PATH}/items`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function uploadSubcontractorMaterialTrackerPhotos(portalUrl, accessToken, itemId, photos, clientId) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_MATERIAL_TRACKER_PATH}/items/${encodeURIComponent(itemId)}/photos`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ client_id: clientId, photos: photos || [] }),
+  });
+  return parseJsonResponse(response);
+}
+
 export function buildSiteDocumentDownloadPath({ siteName, section, bucket, filename }) {
   const params = new URLSearchParams();
   params.set('site_name', siteName || '');
