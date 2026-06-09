@@ -1,85 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import ScreenShell, { colors } from '../components/ScreenShell';
 import { loadSubcontractorSiteWalk360, subcontractorMediaUrl } from '../api/subcontractorApi';
-
 const TAGS = ['All', 'Antenna', 'Node', 'Cores', 'Miscellaneous', 'IDF / ER', 'Electrical'];
 const clean = (v) => String(v ?? '').trim();
 const siteName = (project) => clean(project?.site_name || project?.name || project?.label || project);
 const media = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.thumb_url || p?.public_url || p?.url || p?.image_url);
 const full = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.public_url || p?.url || p?.image_url || p?.thumb_url);
-
-function NativePanoViewer({ uri }) {
-  const { width, height } = useWindowDimensions();
-  const scrollRef = useRef(null);
-  const imageWidth = Math.max(width * 2.6, 900);
-  useEffect(() => {
-    const id = setTimeout(() => scrollRef.current?.scrollTo?.({ x: imageWidth * 0.34, animated: false }), 120);
-    return () => clearTimeout(id);
-  }, [imageWidth]);
-  return (
-    <View style={styles.panoWrap}>
-      <ScrollView ref={scrollRef} horizontal bounces showsHorizontalScrollIndicator={false} contentContainerStyle={{ height: '100%' }} maximumZoomScale={3} minimumZoomScale={1}>
-        {uri ? <Image source={{ uri }} style={{ width: imageWidth, height: height * 0.78 }} resizeMode="cover" /> : <View style={[styles.panoMissing, { width, height: height * 0.78 }]}><Text style={styles.panoMissingText}>No 360 image</Text></View>}
-      </ScrollView>
-      <View style={styles.panoHint}><Text style={styles.panoHintText}>Native viewer — drag left/right to look around</Text></View>
-    </View>
-  );
-}
-
 export default function SubcontractorSiteWalk360Screen({ session, project, onBack, onHome }) {
-  const { width } = useWindowDimensions();
-  const columns = width >= 980 ? 3 : width >= 680 ? 2 : 1;
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [sitewalks, setSitewalks] = useState([]);
-  const [selectedSitewalk, setSelectedSitewalk] = useState('');
-  const [tag, setTag] = useState('All');
-  const [query, setQuery] = useState('');
-  const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const selectedSite = siteName(project);
-
-  const load = useCallback(async ({ silent = false } = {}) => {
-    if (!selectedSite) return;
-    if (!silent) setLoading(true);
-    try {
-      const data = await loadSubcontractorSiteWalk360(session.portalUrl, session.access_token, { siteName: selectedSite, sitewalk: selectedSitewalk, tag, q: query });
-      const walks = Array.isArray(data?.sitewalks) ? data.sitewalks : [];
-      setSitewalks(walks);
-      if (!selectedSitewalk && walks.length) setSelectedSitewalk(clean(walks[0]?.value || walks[0]?.sitewalk_desc || walks[0]));
-      setItems(Array.isArray(data?.items) ? data.items : []);
-    } catch (e) {
-      Alert.alert('SiteWalk 360', e?.message || 'Unable to load SiteWalk 360 photos.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [session?.portalUrl, session?.access_token, selectedSite, selectedSitewalk, tag, query]);
-
-  useEffect(() => { load(); }, [load]);
-  const refresh = () => { setRefreshing(true); load({ silent: true }); };
-  const data = useMemo(() => items, [items]);
-
-  return (
-    <ScreenShell title="SiteWalk 360 Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome}>
-      <View style={styles.wrap}>
-        <View style={styles.toolbarCard}>
-          <TextInput value={query} onChangeText={setQuery} placeholder="Search 360 photos" placeholderTextColor="#71839b" style={styles.search} returnKeyType="search" onSubmitEditing={() => load({ silent: true })} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {sitewalks.map((walk, idx) => { const value = clean(walk?.value || walk?.sitewalk_desc || walk) || `SiteWalk ${idx + 1}`; return <Pressable key={`${value}-${idx}`} onPress={() => setSelectedSitewalk(value)} style={[styles.chip, selectedSitewalk === value && styles.chipActive]}><Text style={[styles.chipText, selectedSitewalk === value && styles.chipTextActive]}>{value}</Text></Pressable>; })}
-          </ScrollView>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{TAGS.map((v) => <Pressable key={v} onPress={() => setTag(v)} style={[styles.tag, tag === v && styles.tagActive]}><Text style={[styles.tagText, tag === v && styles.tagTextActive]}>{v}</Text></Pressable>)}</ScrollView>
-        </View>
-        {loading ? <View style={styles.center}><ActivityIndicator color={colors.blue} /><Text style={styles.muted}>Loading 360 photos…</Text></View> : <FlatList data={data} key={columns} numColumns={columns} keyExtractor={(item, index) => String(item?.id || index)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />} contentContainerStyle={styles.list} renderItem={({ item }) => <Pressable style={[styles.cardWrap, { width: `${100 / columns}%` }]} onPress={() => setSelected(item)}><View style={styles.photoCard}>{media(session.portalUrl, item) ? <Image source={{ uri: media(session.portalUrl, item) }} style={styles.thumb} /> : <View style={[styles.thumb, styles.noImage]}><Text style={styles.noImageText}>360</Text></View>}<View style={styles.cardBody}><Text style={styles.photoTitle} numberOfLines={2}>{clean(item?.name || item?.caption || item?.file_name) || '360 Photo'}</Text><Text style={styles.meta} numberOfLines={1}>{clean(item?.tag) || 'Untagged'}{clean(item?.sitewalk_desc) ? ` · ${clean(item.sitewalk_desc)}` : ''}</Text></View></View></Pressable>} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No 360 photos found</Text><Text style={styles.muted}>This shows only allowed SiteWalk 360 photos for this subcontractor project.</Text></View>} />}
-      </View>
-      <Modal visible={!!selected} animationType="slide" onRequestClose={() => setSelected(null)}>
-        <ScreenShell title="360 Viewer" subtitle={clean(selected?.name || selected?.caption || selected?.file_name)} onBack={() => setSelected(null)} onHome={onHome}>
-          <NativePanoViewer uri={full(session.portalUrl, selected)} />
-        </ScreenShell>
-      </Modal>
-    </ScreenShell>
-  );
+  const { width } = useWindowDimensions(); const columns = width >= 980 ? 3 : width >= 680 ? 2 : 1;
+  const [loading,setLoading]=useState(true),[refreshing,setRefreshing]=useState(false),[sitewalks,setSitewalks]=useState([]),[selectedSitewalk,setSelectedSitewalk]=useState(''),[tag,setTag]=useState('All'),[query,setQuery]=useState(''),[items,setItems]=useState([]),[selected,setSelected]=useState(null);
+  const selectedSite=siteName(project);
+  const load=useCallback(async({silent=false}={})=>{ if(!selectedSite)return; if(!silent)setLoading(true); try{ const data=await loadSubcontractorSiteWalk360(session.portalUrl,session.access_token,{siteName:selectedSite,sitewalk:selectedSitewalk,tag,q:query}); const walks=Array.isArray(data?.sitewalks)?data.sitewalks:[]; setSitewalks(walks); if(!selectedSitewalk&&walks.length)setSelectedSitewalk(clean(walks[0]?.value||walks[0]?.sitewalk_desc||walks[0])); setItems(Array.isArray(data?.items)?data.items:[]);}catch(e){Alert.alert('SiteWalk 360',e?.message||'Unable to load SiteWalk 360 photos.')}finally{setLoading(false);setRefreshing(false)}},[session?.portalUrl,session?.access_token,selectedSite,selectedSitewalk,tag,query]);
+  useEffect(()=>{load()},[load]); const refresh=()=>{setRefreshing(true);load({silent:true})}; const data=useMemo(()=>items,[items]);
+  return <ScreenShell title="SiteWalk 360 Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome}><View style={styles.wrap}><View style={styles.toolbarCard}><TextInput value={query} onChangeText={setQuery} placeholder="Search 360 photos" placeholderTextColor="#71839b" style={styles.search} returnKeyType="search" onSubmitEditing={()=>load({silent:true})}/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{sitewalks.map((walk,idx)=>{const value=clean(walk?.value||walk?.sitewalk_desc||walk)||`SiteWalk ${idx+1}`;return <Pressable key={`${value}-${idx}`} onPress={()=>setSelectedSitewalk(value)} style={[styles.chip,selectedSitewalk===value&&styles.chipActive]}><Text style={[styles.chipText,selectedSitewalk===value&&styles.chipTextActive]}>{value}</Text></Pressable>})}</ScrollView><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{TAGS.map(v=><Pressable key={v} onPress={()=>setTag(v)} style={[styles.tag,tag===v&&styles.tagActive]}><Text style={[styles.tagText,tag===v&&styles.tagTextActive]}>{v}</Text></Pressable>)}</ScrollView></View>{loading?<View style={styles.center}><ActivityIndicator color={colors.blue}/><Text style={styles.muted}>Loading 360 photos…</Text></View>:<FlatList data={data} key={columns} numColumns={columns} keyExtractor={(item,index)=>String(item?.id||index)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>} contentContainerStyle={styles.list} renderItem={({item})=><Pressable style={[styles.cardWrap,{width:`${100/columns}%`}]} onPress={()=>setSelected(item)}><View style={styles.photoCard}>{media(session.portalUrl,item)?<Image source={{uri:media(session.portalUrl,item)}} style={styles.thumb}/>:<View style={[styles.thumb,styles.noImage]}><Text style={styles.noImageText}>360</Text></View>}<View style={styles.cardBody}><Text style={styles.photoTitle} numberOfLines={2}>{clean(item?.name||item?.caption||item?.file_name)||'360 Photo'}</Text><Text style={styles.meta} numberOfLines={1}>{clean(item?.tag)||'Untagged'}{clean(item?.sitewalk_desc)?` · ${clean(item.sitewalk_desc)}`:''}</Text></View></View></Pressable>} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No 360 photos found</Text><Text style={styles.muted}>This shows only allowed SiteWalk 360 photos for this subcontractor project.</Text></View>}/>}</View><Modal visible={!!selected} animationType="slide" onRequestClose={()=>setSelected(null)}><ScreenShell title="360 Viewer" subtitle={clean(selected?.name||selected?.caption||selected?.file_name)} onBack={()=>setSelected(null)} onHome={onHome}><View style={styles.nativeViewer}><ScrollView horizontal bounces maximumZoomScale={3} minimumZoomScale={1} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.panoScroller}><Image source={{uri:full(session.portalUrl,selected)}} style={styles.panoImage} resizeMode="cover"/><View style={styles.viewerHelp}><Text style={styles.viewerHelpText}>Swipe left/right to view the 360 photo.</Text></View></ScrollView></View></ScreenShell></Modal></ScreenShell>
 }
-
-const styles = StyleSheet.create({ wrap: { flex: 1 }, toolbarCard: { margin: 12, padding: 12, borderRadius: 22, backgroundColor: 'rgba(255,255,255,.92)', borderWidth: 1, borderColor: colors.line, gap: 10 }, search: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.line, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11, color: colors.text, fontWeight: '800' }, chips: { gap: 8, paddingRight: 8 }, chip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, backgroundColor: '#eef6ff', borderWidth: 1, borderColor: '#c8def6' }, chipActive: { backgroundColor: '#10233f', borderColor: '#10233f' }, chipText: { fontWeight: '900', color: '#31506d' }, chipTextActive: { color: '#fff' }, tag: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.line }, tagActive: { backgroundColor: colors.blue, borderColor: colors.blue }, tagText: { fontWeight: '900', color: colors.muted }, tagTextActive: { color: '#fff' }, center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }, muted: { color: colors.muted, fontWeight: '800', textAlign: 'center' }, list: { padding: 8, paddingBottom: 30 }, cardWrap: { padding: 6 }, photoCard: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: colors.line, overflow: 'hidden', shadowColor: '#0f172a', shadowOpacity: .06, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 2 }, thumb: { width: '100%', aspectRatio: 1.72, backgroundColor: '#dbe7f2' }, noImage: { alignItems: 'center', justifyContent: 'center' }, noImageText: { color: colors.blue, fontWeight: '900', fontSize: 30 }, cardBody: { padding: 12 }, photoTitle: { color: colors.text, fontWeight: '900', fontSize: 15, lineHeight: 20 }, meta: { marginTop: 5, color: colors.muted, fontWeight: '800', fontSize: 12 }, empty: { padding: 26, alignItems: 'center' }, emptyTitle: { fontSize: 18, fontWeight: '900', color: colors.text, marginBottom: 6 }, panoWrap: { flex: 1, backgroundColor: '#020617' }, panoMissing: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617' }, panoMissingText: { color: '#fff', fontWeight: '900' }, panoHint: { position: 'absolute', left: 12, right: 12, bottom: 18, padding: 10, borderRadius: 16, backgroundColor: 'rgba(2,6,23,.72)' }, panoHintText: { color: '#fff', fontWeight: '900', textAlign: 'center' } });
+const styles=StyleSheet.create({wrap:{flex:1},toolbarCard:{margin:12,padding:12,borderRadius:22,backgroundColor:'rgba(255,255,255,.92)',borderWidth:1,borderColor:colors.line,gap:10},search:{backgroundColor:'#fff',borderWidth:1,borderColor:colors.line,borderRadius:16,paddingHorizontal:14,paddingVertical:11,color:colors.text,fontWeight:'800'},chips:{gap:8,paddingRight:8},chip:{paddingHorizontal:12,paddingVertical:9,borderRadius:999,backgroundColor:'#eef6ff',borderWidth:1,borderColor:'#c8def6'},chipActive:{backgroundColor:'#10233f',borderColor:'#10233f'},chipText:{fontWeight:'900',color:'#31506d'},chipTextActive:{color:'#fff'},tag:{paddingHorizontal:11,paddingVertical:8,borderRadius:999,backgroundColor:'#fff',borderWidth:1,borderColor:colors.line},tagActive:{backgroundColor:colors.blue,borderColor:colors.blue},tagText:{fontWeight:'900',color:colors.muted},tagTextActive:{color:'#fff'},center:{flex:1,alignItems:'center',justifyContent:'center',gap:10},muted:{color:colors.muted,fontWeight:'800',textAlign:'center'},list:{padding:8,paddingBottom:30},cardWrap:{padding:6},photoCard:{backgroundColor:'#fff',borderRadius:18,borderWidth:1,borderColor:colors.line,overflow:'hidden',shadowColor:'#0f172a',shadowOpacity:.06,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:2},thumb:{width:'100%',aspectRatio:1.72,backgroundColor:'#dbe7f2'},noImage:{alignItems:'center',justifyContent:'center'},noImageText:{color:colors.blue,fontWeight:'900',fontSize:30},cardBody:{padding:12},photoTitle:{color:colors.text,fontWeight:'900',fontSize:15,lineHeight:20},meta:{marginTop:5,color:colors.muted,fontWeight:'800',fontSize:12},empty:{padding:26,alignItems:'center'},emptyTitle:{fontSize:18,fontWeight:'900',color:colors.text,marginBottom:6},nativeViewer:{flex:1,backgroundColor:'#020617'},panoScroller:{minWidth:'220%',alignItems:'stretch'},panoImage:{height:'100%',width:1200,backgroundColor:'#020617'},viewerHelp:{position:'absolute',left:14,right:14,bottom:18,padding:11,borderRadius:16,backgroundColor:'rgba(2,6,23,.68)'},viewerHelpText:{color:'#fff',fontWeight:'900',textAlign:'center',fontSize:13}})

@@ -301,64 +301,169 @@ export function subcontractorMediaUrl(portalUrl, path) {
   return `${normalizePortalUrl(portalUrl)}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
 
-export async function loadSubcontractorSiteWalkRedlines(portalUrl, accessToken, { siteName, sitewalkDesc = '' } = {}) {
-  const params = new URLSearchParams();
-  params.set('site_name', siteName || '');
-  if (sitewalkDesc) params.set('sitewalk_desc', sitewalkDesc);
-  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines?${params.toString()}`), {
-    method: 'GET',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-  });
-  return parseJsonResponse(response);
+// -----------------------------------------------------------------------------
+// Native SiteWalk PDF Editor API aliases for the subcontractor mobile app.
+// These intentionally use the same function names as the employee native editor
+// so the subcontractor PDF editor can reuse that proven native implementation.
+// -----------------------------------------------------------------------------
+const SUBCONTRACTOR_REDLINE_PATH = '/mobile/subcontractor/api/site-walk-redlines';
+const SUBCONTRACTOR_PHOTO_ASSETS_PATH = '/mobile/subcontractor/api/photo-assets';
+
+async function subcontractorMobileFetch(portalUrl, path, { method = 'GET', token, body, timeoutMs = 45000, signal } = {}) {
+  const controller = signal ? null : new AbortController();
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch(buildApiUrl(portalUrl, path), {
+      method,
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body || {}) : undefined,
+      signal: signal || controller?.signal,
+    });
+    return await parseJsonResponse(response);
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('The portal did not respond in time.');
+    throw error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
-export async function loadSubcontractorRedlinePageData(portalUrl, accessToken, pageId) {
-  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/page-data?page_id=${encodeURIComponent(String(pageId || ''))}`), {
-    method: 'GET',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-  });
-  return parseJsonResponse(response);
+export function loadMobileSiteWalkRedlineSites(portalUrl, token) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/sites`, { token, timeoutMs: 45000 });
 }
 
-export async function createSubcontractorRedlineAnnotation(portalUrl, accessToken, payload) {
-  const response = await fetch(buildApiUrl(portalUrl, '/mobile/subcontractor/api/site-walk-redlines/annotations'), {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(payload || {}),
-  });
-  return parseJsonResponse(response);
+export function loadMobileSiteWalkRedlines(portalUrl, token, { siteId, siteName, sitewalkDesc, signal } = {}) {
+  const params = [];
+  if (siteId !== undefined && siteId !== null && siteId !== '') params.push(`site_id=${encodeURIComponent(String(siteId))}`);
+  if (siteName) params.push(`site_name=${encodeURIComponent(siteName)}`);
+  if (sitewalkDesc) params.push(`sitewalk_desc=${encodeURIComponent(sitewalkDesc)}`);
+  const qs = params.length ? `?${params.join('&')}` : '';
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}${qs}`, { token, timeoutMs: 45000, signal });
 }
 
-export async function deleteSubcontractorRedlineAnnotation(portalUrl, accessToken, annotationId) {
-  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/annotations/${encodeURIComponent(String(annotationId || ''))}`), {
-    method: 'DELETE',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-  });
-  return parseJsonResponse(response);
+export function loadMobileSiteWalkRedlinesPageData(portalUrl, token, pageId, { signal } = {}) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/page-data?page_id=${encodeURIComponent(String(pageId || ''))}`, { token, timeoutMs: 45000, signal });
 }
 
-export async function createSubcontractorRedlinePin(portalUrl, accessToken, payload) {
-  const response = await fetch(buildApiUrl(portalUrl, '/mobile/subcontractor/api/site-walk-redlines/pins'), {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(payload || {}),
-  });
-  return parseJsonResponse(response);
+export function loadMobileSiteWalkOfflineManifest(portalUrl, token, { siteId, siteName, signal } = {}) {
+  const params = [];
+  if (siteId !== undefined && siteId !== null && siteId !== '') params.push(`site_id=${encodeURIComponent(String(siteId))}`);
+  if (siteName) params.push(`site_name=${encodeURIComponent(siteName)}`);
+  const qs = params.length ? `?${params.join('&')}` : '';
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/offline-manifest${qs}`, { token, timeoutMs: 120000, signal });
 }
 
-export async function updateSubcontractorRedlinePin(portalUrl, accessToken, pinId, payload) {
-  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/pins/${encodeURIComponent(String(pinId || ''))}`), {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(payload || {}),
-  });
-  return parseJsonResponse(response);
+export function createMobileRedlinePin(portalUrl, token, payload) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/pins`, { method: 'POST', token, body: payload, timeoutMs: 45000 });
 }
 
-export async function deleteSubcontractorRedlinePin(portalUrl, accessToken, pinId) {
-  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/pins/${encodeURIComponent(String(pinId || ''))}`), {
-    method: 'DELETE',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-  });
-  return parseJsonResponse(response);
+export function updateMobileRedlinePin(portalUrl, token, pinId, payload) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}`, { method: 'POST', token, body: payload, timeoutMs: 45000 });
+}
+
+export function deleteMobileRedlinePin(portalUrl, token, pinId) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}`, { method: 'DELETE', token, timeoutMs: 45000 });
+}
+
+export async function uploadMobileRedlinePinPhoto(portalUrl, token, pinId, { siteId, name, tag, sitewalkDesc, note, appendMode = false, file, timeoutMs = 45000, clientOpId = '' } = {}) {
+  const form = new FormData();
+  form.append('site_id', String(siteId || ''));
+  form.append('name', String(name || 'Pin photo'));
+  if (tag !== undefined && tag !== null) form.append('tag', String(tag || ''));
+  if (sitewalkDesc !== undefined && sitewalkDesc !== null) form.append('sitewalk_desc', String(sitewalkDesc || ''));
+  if (note !== undefined && note !== null) form.append('note', String(note || ''));
+  if (clientOpId) form.append('client_op_id', String(clientOpId));
+  form.append('append_mode', appendMode ? 'true' : 'false');
+  if (!file?.uri) throw new Error('No image selected.');
+  form.append('file', { uri: file.uri, name: file.name || `redline-photo-${Date.now()}.jpg`, type: file.type || 'image/jpeg' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${normalizePortalUrl(portalUrl)}${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}/photo`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+      signal: controller.signal,
+    });
+    return await parseJsonResponse(response);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function createMobileRedlineAnnotation(portalUrl, token, payload) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/annotations`, { method: 'POST', token, body: payload, timeoutMs: 45000 });
+}
+
+export function updateMobileRedlineAnnotation(portalUrl, token, annotationId, payload) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/annotations/${encodeURIComponent(String(annotationId))}`, { method: 'POST', token, body: payload, timeoutMs: 45000 });
+}
+
+export function deleteMobileRedlineAnnotation(portalUrl, token, annotationId) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/annotations/${encodeURIComponent(String(annotationId))}`, { method: 'DELETE', token, timeoutMs: 45000 });
+}
+
+export function saveMobileRedlineSitewalkPermission(_portalUrl, _token, _payload) {
+  return Promise.resolve({ ok: true, readonly: true });
+}
+
+export function saveMobileRedlinePageOrder(_portalUrl, _token, _payload) {
+  return Promise.resolve({ ok: true, readonly: true });
+}
+
+export function loadMobileRedlineDotOptions(_portalUrl, _token, _siteId) {
+  return Promise.resolve({ ok: true, tasks: [], locations: [] });
+}
+
+export function loadMobilePhotoAssetUnseenCounts(_portalUrl, _token, _siteId) {
+  return Promise.resolve({ ok: true, counts: {}, items: [] });
+}
+
+export function loadMobilePhotoAssets(_portalUrl, _token, _opts = {}) {
+  return Promise.resolve({ ok: true, items: [] });
+}
+
+export async function uploadMobileRedline360PinPhoto(portalUrl, token, pinId, { siteId, name, tag, sitewalkDesc, note, file, timeoutMs = 45000, clientOpId = '' } = {}) {
+  const form = new FormData();
+  form.append('site_id', String(siteId || ''));
+  form.append('name', String(name || '360 Photo'));
+  if (tag !== undefined && tag !== null) form.append('tag', String(tag || ''));
+  if (sitewalkDesc !== undefined && sitewalkDesc !== null) form.append('sitewalk_desc', String(sitewalkDesc || ''));
+  if (note !== undefined && note !== null) form.append('note', String(note || ''));
+  if (clientOpId) form.append('client_op_id', String(clientOpId));
+  if (!file?.uri) throw new Error('No 360 image selected.');
+  form.append('file', { uri: file.uri, name: file.name || `site-walk-360-${Date.now()}.jpg`, type: file.type || 'image/jpeg' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${normalizePortalUrl(portalUrl)}${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}/360`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: form,
+      signal: controller.signal,
+    });
+    return await parseJsonResponse(response);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function deleteMobileRedline360Photo(portalUrl, token, pinId, photoId) {
+  const params = photoId ? `?photo_id=${encodeURIComponent(String(photoId))}` : '';
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}/360${params}`, { method: 'DELETE', token, timeoutMs: 45000 });
+}
+
+export function saveMobileRedline360PhotoAnnotations(portalUrl, token, photoId, payload) {
+  return subcontractorMobileFetch(portalUrl, `${SUBCONTRACTOR_REDLINE_PATH}/360/${encodeURIComponent(String(photoId))}/annotations`, { method: 'POST', token, body: payload, timeoutMs: 45000 });
+}
+
+export function saveMobileRedlineSiteWalkPhotoAnnotation(portalUrl, token, photoId, payload, { pinId = null } = {}) {
+  const path = pinId
+    ? `${SUBCONTRACTOR_REDLINE_PATH}/pins/${encodeURIComponent(String(pinId))}/photo/annotation${photoId ? `?photo_id=${encodeURIComponent(String(photoId))}` : ''}`
+    : `${SUBCONTRACTOR_REDLINE_PATH}/site-walk-photos/${encodeURIComponent(String(photoId))}/annotation`;
+  return subcontractorMobileFetch(portalUrl, path, { method: 'POST', token, body: payload, timeoutMs: 45000 });
 }
