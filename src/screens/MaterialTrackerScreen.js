@@ -254,9 +254,9 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}>
-          <View style={styles.header}><View style={styles.headerTextBlock}><Text style={styles.kicker}>{t("Material Tracker")}</Text><Text style={styles.title}>{title}</Text></View><Pressable style={styles.backButton} onPress={onClose}><Text style={styles.backButtonText}>{t("Close")}</Text></Pressable></View>
-          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}>
+        <View style={styles.header}><View style={styles.headerTextBlock}><Text style={styles.kicker}>{t("Material Tracker")}</Text><Text style={styles.title}>{title}</Text></View><Pressable style={styles.backButton} onPress={onClose}><Text style={styles.backButtonText}>{t("Close")}</Text></Pressable></View>
+        <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}>
             <View style={styles.card}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{t("Material Details")}</Text>
@@ -273,9 +273,9 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
                 <View style={styles.halfField} onLayout={recordFieldLayout('sku')}><Text style={styles.label}>{t("SKU")}</Text><TextInput value={form.sku} editable={canEditDetails} onFocus={() => scrollToField('sku')} onChangeText={(v) => setField('sku', v)} placeholder={t("SKU")} placeholderTextColor="#7d8ca8" style={[styles.input, !canEditDetails && styles.inputLocked]} /></View>
               </View>
               <View style={styles.threeCol}>
-                <View style={styles.thirdField}><Text style={styles.label}>{t("Requested")}</Text><TextInput value={form.requested_qty} editable={canEditDetails} onChangeText={(v) => setField('requested_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={[styles.input, !canEditDetails && styles.inputLocked]} /></View>
-                <View style={styles.thirdField}><Text style={styles.label}>{t("Ordered")}</Text><TextInput value={form.ordered_qty} editable={canEditDetails} onChangeText={(v) => setField('ordered_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={[styles.input, !canEditDetails && styles.inputLocked]} /></View>
-                <View style={styles.thirdField}><Text style={styles.label}>{t("Received")}</Text><TextInput value={form.received_qty} onChangeText={(v) => setField('received_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={styles.input} /></View>
+                <View style={styles.thirdField} onLayout={recordFieldLayout('requested_qty')}><Text style={styles.label}>{t("Requested")}</Text><TextInput value={form.requested_qty} editable={canEditDetails} onFocus={() => scrollToField('requested_qty')} onChangeText={(v) => setField('requested_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={[styles.input, !canEditDetails && styles.inputLocked]} /></View>
+                <View style={styles.thirdField} onLayout={recordFieldLayout('ordered_qty')}><Text style={styles.label}>{t("Ordered")}</Text><TextInput value={form.ordered_qty} editable={canEditDetails} onFocus={() => scrollToField('ordered_qty')} onChangeText={(v) => setField('ordered_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={[styles.input, !canEditDetails && styles.inputLocked]} /></View>
+                <View style={styles.thirdField} onLayout={recordFieldLayout('received_qty')}><Text style={styles.label}>{t("Received")}</Text><TextInput value={form.received_qty} onFocus={() => scrollToField('received_qty')} onChangeText={(v) => setField('received_qty', v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#7d8ca8" style={styles.input} /></View>
               </View>
               <SelectField label={t("Status")} value={form.status} options={STATUS_OPTIONS} onSelect={(v) => setField('status', v)} />
               <View style={styles.twoCol}>
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: '#dfe7ff', fontWeight: '800' },
   scroll: { flex: 1 },
-  scrollContent: { padding: 14, paddingBottom: 38, gap: 14 },
+  scrollContent: { padding: 14, paddingBottom: 120, gap: 14 },
   listContent: { padding: 14, paddingBottom: 38, gap: 12 },
   listContentTablet: { maxWidth: 980, alignSelf: 'center', width: '100%' },
   toolbar: { padding: 12, gap: 10, flexDirection: 'row', backgroundColor: '#07111f' },
