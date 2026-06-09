@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -204,6 +205,7 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
   const [form, setForm] = useState({ ...BLANK_ITEM, site_name: siteNameValue });
   const [photos, setPhotos] = useState([]);
   const [editDetails, setEditDetails] = useState(false);
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
   const isEdit = Boolean(initialItem?.id);
   const canEditDetails = !isEdit || editDetails;
 
@@ -212,13 +214,29 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
       setForm({ ...BLANK_ITEM, site_name: siteNameValue, ...(initialItem || {}) });
       setPhotos([]);
       setEditDetails(false);
+      setKeyboardPadding(0);
     }
   }, [visible, initialItem, siteNameValue]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      const height = Number(event?.endCoordinates?.height || 0);
+      setKeyboardPadding(Math.max(0, height - 18));
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardPadding(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   const recordFieldLayout = useCallback((key) => (event) => { fieldLayoutsRef.current[key] = event?.nativeEvent?.layout?.y || 0; }, []);
   const scrollToField = useCallback((key) => {
     const y = Number(fieldLayoutsRef.current[key] || 0);
-    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 90), animated: true }), 260);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true }), 320);
   }, []);
 
   async function pickPhoto(source) {
@@ -255,8 +273,8 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}><View style={styles.headerTextBlock}><Text style={styles.kicker}>{t("Material Tracker")}</Text><Text style={styles.title}>{title}</Text></View><Pressable style={styles.backButton} onPress={onClose}><Text style={styles.backButtonText}>{t("Close")}</Text></Pressable></View>
-        <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
-          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}>
+        <View style={styles.modalBody}>
+          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + keyboardPadding }]} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}>
             <View style={styles.card}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{t("Material Details")}</Text>
@@ -294,7 +312,7 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
 
             <Pressable style={styles.submitButton} onPress={save}><Text style={styles.submitButtonText}>{isEdit ? 'Save Material' : 'Add Material'}</Text></Pressable>
           </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -485,6 +503,7 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#07111f' },
   keyboardAvoiding: { flex: 1 },
+  modalBody: { flex: 1, overflow: 'hidden' },
   header: { paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#0f1f35', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerTextBlock: { flex: 1 },
   kicker: { color: '#8fb2ff', fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
