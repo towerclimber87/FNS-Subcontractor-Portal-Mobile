@@ -38,7 +38,13 @@ export default function ProjectScreen({ project, pages, onBack, onHome, onOpenPa
   }
 
   return (
-    <ScreenShell title="Project Tools" subtitle={project?.site_name || 'Selected project'} onBack={onBack} onHome={onHome}>
+    <ScreenShell
+      title="Project Tools"
+      subtitle={project?.site_name || 'Selected project'}
+      onBack={onBack}
+      onHome={onHome}
+      backgroundSource={require('../../assets/subcontractor-home-background.png')}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.projectHero}>
           <View style={styles.heroBar} />
