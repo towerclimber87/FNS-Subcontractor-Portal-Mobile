@@ -1,9 +1,9 @@
-import { SafeAreaView, StyleSheet, Text, View, Pressable, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { ImageBackground, SafeAreaView, StyleSheet, Text, View, Pressable, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 const ANDROID_TOP = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) : 0;
 
-export default function ScreenShell({ title, subtitle, onBack, onHome, onLogout, children }) {
+export default function ScreenShell({ title, subtitle, onBack, onHome, onLogout, children, backgroundSource }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" backgroundColor={colors.bg} translucent={false} />
@@ -31,13 +31,20 @@ export default function ScreenShell({ title, subtitle, onBack, onHome, onLogout,
           ) : null}
         </View>
       </View>
-      <View style={styles.body}>
-        <View pointerEvents="none" style={styles.pageDecor}>
-          <View style={[styles.decorBlob, styles.decorBlobOne]} />
-          <View style={[styles.decorBlob, styles.decorBlobTwo]} />
-          <View style={[styles.decorBlob, styles.decorBlobThree]} />
-          <View style={styles.decorRing} />
-        </View>
+      <View style={[styles.body, backgroundSource && styles.bodyWithImage]}>
+        {backgroundSource ? (
+          <ImageBackground source={backgroundSource} resizeMode="cover" style={styles.backgroundImage} imageStyle={styles.backgroundImageRadius}>
+            <View style={styles.backgroundOverlay} />
+          </ImageBackground>
+        ) : null}
+        {!backgroundSource ? (
+          <View pointerEvents="none" style={styles.pageDecor}>
+            <View style={[styles.decorBlob, styles.decorBlobOne]} />
+            <View style={[styles.decorBlob, styles.decorBlobTwo]} />
+            <View style={[styles.decorBlob, styles.decorBlobThree]} />
+            <View style={styles.decorRing} />
+          </View>
+        ) : null}
         <View style={styles.bodyContent}>{children}</View>
       </View>
     </SafeAreaView>
@@ -73,6 +80,10 @@ const styles = StyleSheet.create({
   logoutButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' },
   logoutText: { color: '#fecaca', fontWeight: '900', fontSize: 12 },
   body: { flex: 1, backgroundColor: colors.pageBg, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.18)', position: 'relative' },
+  bodyWithImage: { backgroundColor: '#06111f' },
+  backgroundImage: { ...StyleSheet.absoluteFillObject },
+  backgroundImageRadius: { borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  backgroundOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,12,24,0.42)' },
   pageDecor: { ...StyleSheet.absoluteFillObject },
   bodyContent: { flex: 1 },
   decorBlob: { position: 'absolute', borderRadius: 9999, backgroundColor: 'rgba(125, 169, 214, 0.14)' },

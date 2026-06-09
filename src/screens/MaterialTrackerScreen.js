@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -205,7 +204,6 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
   const [form, setForm] = useState({ ...BLANK_ITEM, site_name: siteNameValue });
   const [photos, setPhotos] = useState([]);
   const [editDetails, setEditDetails] = useState(false);
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
   const isEdit = Boolean(initialItem?.id);
   const canEditDetails = !isEdit || editDetails;
 
@@ -214,29 +212,13 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
       setForm({ ...BLANK_ITEM, site_name: siteNameValue, ...(initialItem || {}) });
       setPhotos([]);
       setEditDetails(false);
-      setKeyboardPadding(0);
     }
   }, [visible, initialItem, siteNameValue]);
-
-  useEffect(() => {
-    if (!visible) return undefined;
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (event) => {
-      const height = Number(event?.endCoordinates?.height || 0);
-      setKeyboardPadding(Math.max(0, height - 18));
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardPadding(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [visible]);
 
   const recordFieldLayout = useCallback((key) => (event) => { fieldLayoutsRef.current[key] = event?.nativeEvent?.layout?.y || 0; }, []);
   const scrollToField = useCallback((key) => {
     const y = Number(fieldLayoutsRef.current[key] || 0);
-    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 80), animated: true }), 320);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 90), animated: true }), 260);
   }, []);
 
   async function pickPhoto(source) {
@@ -273,8 +255,8 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}><View style={styles.headerTextBlock}><Text style={styles.kicker}>{t("Material Tracker")}</Text><Text style={styles.title}>{title}</Text></View><Pressable style={styles.backButton} onPress={onClose}><Text style={styles.backButtonText}>{t("Close")}</Text></Pressable></View>
-        <View style={styles.modalBody}>
-          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 + keyboardPadding }]} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}>
+        <View style={styles.keyboardAvoiding}>
+          <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} automaticallyAdjustKeyboardInsets={false}>
             <View style={styles.card}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{t("Material Details")}</Text>
@@ -318,11 +300,12 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
   );
 }
 
-function MaterialCard({ item, onEdit, onAddPhoto }) {
+function MaterialCard({ item, onEdit, onAddPhoto, onReceiveChange, receiveSaving }) {
   const status = clean(item.status || 'Not Completed');
   const statusStyle = status === 'Completed' ? styles.statusCompleted : status === 'Missing' || status === 'Damaged' ? styles.statusBad : styles.statusOpen;
+  const receivedValue = numberOrBlank(item.received_qty);
   return (
-    <Pressable style={[styles.itemCard, item.pending && styles.pendingCard]} onPress={() => onEdit(item)}>
+    <View style={[styles.itemCard, item.pending && styles.pendingCard]}>
       <View style={styles.itemTop}>
         <View style={styles.itemMain}>
           <Text style={styles.itemTitle} numberOfLines={1}>{item.description || 'Untitled Material'}</Text>
@@ -330,19 +313,35 @@ function MaterialCard({ item, onEdit, onAddPhoto }) {
         </View>
         <View style={[styles.statusPill, statusStyle]}><Text style={styles.statusText}>{status}</Text></View>
       </View>
-      <View style={styles.compactQtyRow}>
-        <Text style={styles.qtyText}>Req {item.requested_qty || '—'}</Text>
-        <Text style={styles.qtyText}>Ord {item.ordered_qty || '—'}</Text>
-        <Text style={styles.qtyText}>Rec {item.received_qty || '—'}</Text>
-        <Text style={styles.photoCountText}>📷 {item.photo_count || 0}</Text>
+      <View style={styles.cardBodyRow}>
+        <View style={styles.qtySummaryBlock}>
+          <Text style={styles.qtySmallText}>Req {item.requested_qty || '—'}</Text>
+          <Text style={styles.qtySmallText}>Ord {item.ordered_qty || '—'}</Text>
+          <Text style={styles.photoCountText}>📷 {item.photo_count || 0}</Text>
+        </View>
+        <View style={styles.receiveEditorBlock}>
+          <View style={styles.receiveLabelRow}>
+            <Text style={styles.receiveLabel}>Received</Text>
+            {receiveSaving ? <Text style={styles.receiveSaving}>Saving…</Text> : null}
+          </View>
+          <TextInput
+            value={receivedValue}
+            onChangeText={(value) => onReceiveChange(item, value)}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor="#6f809b"
+            selectTextOnFocus
+            style={styles.receiveInput}
+          />
+        </View>
       </View>
       {item.notes ? <Text style={styles.itemNotes} numberOfLines={1}>{item.notes}</Text> : null}
       <View style={styles.cardActions}>
-        <Pressable style={styles.cardActionButton} onPress={(e) => { e.stopPropagation?.(); onAddPhoto(item); }}><Text style={styles.cardActionText}>{t("Photos")}</Text></Pressable>
-        <Pressable style={styles.cardActionButton} onPress={(e) => { e.stopPropagation?.(); onEdit(item); }}><Text style={styles.cardActionText}>{t("Open")}</Text></Pressable>
+        <Pressable style={styles.cardActionButton} onPress={() => onAddPhoto(item)}><Text style={styles.cardActionText}>{t("Photos")}</Text></Pressable>
+        <Pressable style={styles.cardActionButton} onPress={() => onEdit(item)}><Text style={styles.cardActionText}>{t("Open")}</Text></Pressable>
       </View>
       {item.pending ? <Text style={styles.pendingText}>{t("Pending offline sync")}</Text> : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -362,6 +361,8 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
   const [showCompleted, setShowCompleted] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [receiveSavingById, setReceiveSavingById] = useState({});
+  const receiveSaveTimersRef = useRef({});
 
   const companyPrefix = clean(bootstrap?.company_prefix || 'FNS');
   const currentSite = clean(bootstrap?.current_site || bootstrap?.site_name || selectedSiteName);
@@ -397,6 +398,48 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
       return blob.includes(q);
     });
   }, [items, query, statusFilter, showCompleted]);
+
+  useEffect(() => () => {
+    Object.values(receiveSaveTimersRef.current || {}).forEach((timer) => clearTimeout(timer));
+  }, []);
+
+  function buildReceivedUpdatePayload(item, receivedQty) {
+    return payloadFromForm({
+      ...item,
+      site_name: item?.site_name || currentSite,
+      received_qty: receivedQty,
+    }, currentSite);
+  }
+
+  function updateReceivedQtyLive(item, rawValue) {
+    const itemId = item?.id;
+    const nextValue = String(rawValue || '').replace(/[^0-9.]/g, '');
+    setItems((current) => current.map((row) => String(row.id) === String(itemId) ? { ...row, received_qty: nextValue } : row));
+    if (!itemId || item.pending) return;
+    if (receiveSaveTimersRef.current[itemId]) clearTimeout(receiveSaveTimersRef.current[itemId]);
+    const snapshot = { ...item, received_qty: nextValue, site_name: item?.site_name || currentSite };
+    receiveSaveTimersRef.current[itemId] = setTimeout(async () => {
+      setReceiveSavingById((current) => ({ ...current, [itemId]: true }));
+      try {
+        const payload = buildReceivedUpdatePayload(snapshot, nextValue);
+        const response = await updateSubcontractorMaterialTrackerItem(portalUrl, token, itemId, {
+          client_id: makeClientId('sub_material_receive'),
+          ...payload,
+        });
+        if (response?.item) {
+          setItems((current) => current.map((row) => String(row.id) === String(itemId) ? itemFromServer(response.item) : row));
+        }
+      } catch (error) {
+        Alert.alert('Material Tracker', error?.message || 'Unable to save the received quantity.');
+      } finally {
+        setReceiveSavingById((current) => {
+          const next = { ...current };
+          delete next[itemId];
+          return next;
+        });
+      }
+    }, 650);
+  }
 
   async function saveItem({ payload, photos, item }) {
     setSaving(true);
@@ -491,6 +534,8 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
             item={item}
             onEdit={(row) => { setEditingItem(row); setFormVisible(true); }}
             onAddPhoto={addPhotoToItem}
+            onReceiveChange={updateReceivedQtyLive}
+            receiveSaving={Boolean(receiveSavingById[item.id])}
           />
         ))}
         {!visibleItems.length ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No materials found</Text><Text style={styles.emptyText}>Add a material item or adjust your search/filter.</Text></View> : null}
@@ -503,7 +548,6 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#07111f' },
   keyboardAvoiding: { flex: 1 },
-  modalBody: { flex: 1, overflow: 'hidden' },
   header: { paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#0f1f35', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerTextBlock: { flex: 1 },
   kicker: { color: '#8fb2ff', fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
@@ -618,5 +662,14 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   cardActionButton: { borderRadius: 11, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   cardActionText: { color: '#dfe7ff', fontWeight: '900', fontSize: 12 },
+
+  cardBodyRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  qtySummaryBlock: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignContent: 'flex-start', paddingTop: 2 },
+  qtySmallText: { color: '#dfe7ff', fontWeight: '900', backgroundColor: '#10243a', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, fontSize: 12 },
+  receiveEditorBlock: { width: 124, borderRadius: 16, padding: 10, backgroundColor: 'rgba(75,92,240,0.18)', borderWidth: 1, borderColor: 'rgba(122,162,255,0.35)' },
+  receiveLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 5 },
+  receiveLabel: { color: '#bfdbfe', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.7 },
+  receiveSaving: { color: '#93c5fd', fontSize: 9, fontWeight: '900' },
+  receiveInput: { minHeight: 46, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, color: '#ffffff', fontSize: 26, fontWeight: '900', textAlign: 'center', backgroundColor: 'rgba(7,17,31,0.68)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
 
 });

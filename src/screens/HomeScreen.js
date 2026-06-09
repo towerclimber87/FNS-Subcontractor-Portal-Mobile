@@ -105,7 +105,7 @@ export default function HomeScreen({ session, onLogout, onOpenProject }) {
   }, [loading, refreshing, query, projects, columns, user, home, load, onOpenProject, error, isPhone]);
 
   return (
-    <ScreenShell title="FNS Subcontractor Portal" subtitle={subtitle} onLogout={onLogout}>
+    <ScreenShell title="FNS Subcontractor Portal" subtitle={subtitle} onLogout={onLogout} backgroundSource={require('../../assets/subcontractor-home-background.png')}>
       {content}
     </ScreenShell>
   );
@@ -114,8 +114,8 @@ export default function HomeScreen({ session, onLogout, onOpenProject }) {
 const styles = StyleSheet.create({
   content: { padding: 14, paddingBottom: 36 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: colors.muted, fontWeight: '800' },
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: '#10233f', borderRadius: 22, paddingHorizontal: 15, paddingVertical: 15, marginBottom: 14, shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
+  loadingText: { color: '#dbeafe', fontWeight: '800' },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: 'rgba(8,24,44,0.88)', borderRadius: 22, paddingHorizontal: 15, paddingVertical: 15, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(147,197,253,0.22)', shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 4 },
   heroPhone: { gap: 9, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 },
   avatar: { width: 50, height: 50, borderRadius: 18, backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
   avatarPhone: { width: 36, height: 36, borderRadius: 13 },
@@ -128,21 +128,21 @@ const styles = StyleSheet.create({
   countPillPhone: { minWidth: 34, height: 34, borderRadius: 13 },
   countText: { color: colors.green, fontWeight: '900', fontSize: 18 },
   countTextPhone: { fontSize: 14 },
-  errorCard: { backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
-  errorText: { color: '#b91c1c', fontWeight: '800', textAlign: 'center' },
+  errorCard: { backgroundColor: 'rgba(127,29,29,0.82)', borderColor: 'rgba(254,202,202,0.35)', borderWidth: 1, borderRadius: 16, padding: 12, marginBottom: 14 },
+  errorText: { color: '#fee2e2', fontWeight: '800', textAlign: 'center' },
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  searchInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 16, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, fontWeight: '800', color: colors.text },
+  searchInput: { flex: 1, backgroundColor: 'rgba(8,24,44,0.86)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(147,197,253,0.22)', paddingHorizontal: 14, paddingVertical: 12, fontWeight: '800', color: '#f8fbff' },
   searchButton: { backgroundColor: colors.blue, borderRadius: 16, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#1d4ed8', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   searchButtonText: { color: '#fff', fontWeight: '900' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
   projectCard: { padding: 6 },
-  innerProjectCard: { minHeight: 90, backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(191,219,254,0.85)', paddingHorizontal: 14, paddingVertical: 14, justifyContent: 'center', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
+  innerProjectCard: { minHeight: 90, backgroundColor: 'rgba(8,24,44,0.84)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(147,197,253,0.2)', paddingHorizontal: 14, paddingVertical: 14, justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   projectRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  projectIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', alignItems: 'center', justifyContent: 'center' },
+  projectIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(219,234,254,0.14)', borderWidth: 1, borderColor: 'rgba(191,219,254,0.35)', alignItems: 'center', justifyContent: 'center' },
   projectIconText: { fontSize: 20 },
-  projectName: { flex: 1, color: colors.text, fontSize: 16, lineHeight: 21, fontWeight: '900' },
-  emptyCard: { backgroundColor: '#fff', borderRadius: 22, borderWidth: 1, borderColor: colors.line, padding: 20 },
-  emptyTitle: { color: colors.text, fontWeight: '900', fontSize: 18 },
-  emptyCopy: { color: colors.muted, fontWeight: '600', lineHeight: 20, marginTop: 8 },
+  projectName: { flex: 1, color: '#f8fbff', fontSize: 16, lineHeight: 21, fontWeight: '900' },
+  emptyCard: { backgroundColor: 'rgba(8,24,44,0.84)', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(147,197,253,0.2)', padding: 20 },
+  emptyTitle: { color: '#f8fbff', fontWeight: '900', fontSize: 18 },
+  emptyCopy: { color: '#b9c8dc', fontWeight: '700', lineHeight: 20, marginTop: 8 },
   pressed: { opacity: 0.72 },
 });
