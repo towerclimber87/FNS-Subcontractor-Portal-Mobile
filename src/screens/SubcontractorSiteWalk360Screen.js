@@ -110,72 +110,345 @@ function parseAnnotationPoints(value) {
   return [];
 }
 
+function wrapYaw(value) {
+  let yaw = Number(value || 0);
+  while (yaw > 180) yaw -= 360;
+  while (yaw <= -180) yaw += 360;
+  return yaw;
+}
+
+function clampPitch(value) {
+  const n = Number(value || 0);
+  return Math.max(-89, Math.min(89, n));
+}
+
+function clamp01(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+function pointHasYawPitch(point) {
+  return point && point.yaw !== undefined && point.yaw !== null && point.pitch !== undefined && point.pitch !== null;
+}
+
+function pointToYawPitch(point) {
+  return {
+    yaw: (clamp01(point?.x) * 360) - 180,
+    pitch: 90 - (clamp01(point?.y) * 180),
+  };
+}
+
 function normalize360Annotation(row) {
-  const points = parseAnnotationPoints(row?.points || row?.geometry_json || row?.geometry);
+  const rawPoints = parseAnnotationPoints(row?.points || row?.geometry_json || row?.geometry);
+  const rawKind = clean(row?.kind || row?.type || 'polyline').toLowerCase();
+  const kind = rawKind === 'draw' || rawKind === 'pencil' ? 'polyline' : rawKind;
   return {
     ...row,
-    kind: clean(row?.kind || row?.type || 'polyline'),
+    id: clean(row?.id || row?.annotation_id) || `ann-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    kind,
     color: clean(row?.color) || '#ef4444',
     stroke_width: Number(row?.stroke_width || row?.strokeWidth || 3) || 3,
-    is_closed: Boolean(row?.is_closed || row?.closed),
-    points: points
+    strokeWidth: Number(row?.stroke_width || row?.strokeWidth || 3) || 3,
+    is_closed: Boolean(row?.is_closed || row?.isClosed || row?.closed),
+    label: clean(row?.label || row?.text || row?.note),
+    points: rawPoints
       .map((point) => {
-        if (Array.isArray(point)) return { yaw: Number(point[0] || 0), pitch: Number(point[1] || 0) };
-        if (point && typeof point === 'object') return { yaw: Number(point.yaw ?? point.x ?? 0), pitch: Number(point.pitch ?? point.y ?? 0) };
-        return null;
+        let spherical = null;
+        if (Array.isArray(point)) {
+          spherical = { yaw: Number(point[0] || 0), pitch: Number(point[1] || 0) };
+        } else if (point && typeof point === 'object') {
+          spherical = pointHasYawPitch(point) ? point : pointToYawPitch(point);
+        }
+        if (!spherical) return null;
+        return { yaw: wrapYaw(spherical.yaw), pitch: clampPitch(spherical.pitch) };
       })
       .filter(Boolean),
   };
 }
 
 function buildPanoHtml({ imageUrl, annotations = [] }) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>
-    html,body{margin:0;height:100%;overflow:hidden;background:#020617;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none;}
-    #gl{position:absolute;inset:0;width:100%;height:100%;display:block;background:#020617;}
-    #anno{position:absolute;inset:0;pointer-events:none;}
-    .hint{position:absolute;left:14px;right:14px;bottom:14px;border-radius:16px;padding:10px 12px;background:rgba(2,6,23,.68);font-weight:800;text-align:center;font-size:13px;}
-    .status{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);text-align:center;font-weight:900;color:#cbd5e1;}
-  </style></head><body><canvas id="gl"></canvas><svg id="anno"></svg><div id="status" class="status">Loading 360 photo…</div><div class="hint">Drag to look around · pinch to zoom</div><script>
+  const config = { imageUrl, annotations: Array.isArray(annotations) ? annotations : [] };
+  return `<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>
+html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#020617; touch-action:none; user-select:none; -webkit-user-select:none; }
+#wrap { position:fixed; inset:0; overflow:hidden; background:radial-gradient(circle at 50% 45%, #111827 0%, #020617 70%); }
+#gl { position:absolute; inset:0; width:100%; height:100%; display:block; }
+#overlay { position:absolute; inset:0; pointer-events:none; }
+#shade { position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.03) 0%, rgba(15,23,42,0.05) 48%, rgba(0,0,0,0.38) 100%); }
+#status { position:absolute; left:12px; top:12px; max-width:calc(100% - 24px); border-radius:14px; padding:10px 12px; color:#fff; background:rgba(15,23,42,.78); font:800 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; display:none; }
+#hint { position:absolute; right:10px; bottom:10px; border-radius:14px; padding:8px 10px; color:#fff; background:rgba(15,23,42,.70); font:800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; text-align:right; pointer-events:none; }
+#hint small { display:block; color:#bfdbfe; font-size:10px; margin-top:2px; }
+.ann-line { position:absolute; height:3px; border-radius:999px; transform-origin:0 50%; pointer-events:none; }
+.ann-arrow-head { position:absolute; width:0; height:0; border-top:8px solid transparent; border-bottom:8px solid transparent; border-left:14px solid currentColor; transform-origin:0 50%; pointer-events:none; }
+.ann-label { position:absolute; transform:translate(6px,-18px); padding:2px 6px; border-radius:8px; background:rgba(2,6,23,.68); color:#fff; font:900 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.8); pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="gl"></canvas>
+  <div id="overlay"></div>
+  <div id="shade"></div>
+  <div id="status">Loading 360 photo...</div>
+  <div id="hint">Drag to look around<small>Pinch to zoom · full sphere</small></div>
+</div>
+<script>
 (function(){
-  var imageUrl=${safeJson(imageUrl || '')};
-  var annotations=${safeJson(Array.isArray(annotations) ? annotations : [])};
-  var canvas=document.getElementById('gl'), status=document.getElementById('status'), svg=document.getElementById('anno');
-  var gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl');
-  var yaw=0,pitch=0,fov=82,drag=null,lastDist=0,texture=null,program=null,buffer=null;
-  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-  function wrap(v){while(v>180)v-=360;while(v<=-180)v+=360;return v;}
-  function show(msg){status.textContent=msg||'';status.style.display=msg?'block':'none';}
-  function shader(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
-  function init(){
-    if(!gl){show('This device cannot open the native 360 viewer.');return;}
-    var vs=shader(gl.VERTEX_SHADER,'attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}');
-    var fs=shader(gl.FRAGMENT_SHADER,'precision mediump float;uniform sampler2D tex;uniform vec2 res;uniform float yaw;uniform float pitch;uniform float fov;const float PI=3.141592653589793;void main(){float hf=radians(fov);float fx=res.x/(2.0*tan(hf*0.5));vec2 sc=vec2(gl_FragCoord.x,res.y-gl_FragCoord.y);float x1=(sc.x-res.x*.5)/fx;float y1=(res.y*.5-sc.y)/fx;float z1=1.0;float cp=cos(radians(pitch));float sp=sin(radians(pitch));float y=cp*y1+sp*z1;float z2=-sp*y1+cp*z1;float yr=radians(-yaw);float cy=cos(yr);float sy=sin(yr);float x=cy*x1-sy*z2;float z=sy*x1+cy*z2;vec3 dir=normalize(vec3(x,y,z));float lon=atan(dir.x,dir.z);float lat=asin(clamp(dir.y,-1.0,1.0));vec2 uv=vec2(fract(.5+lon/(2.0*PI)),.5-lat/PI);gl_FragColor=texture2D(tex,uv);}');
-    program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));
-    buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
-    resize();
+  var config = ${safeJson(config)};
+  var canvas = document.getElementById('gl');
+  var overlay = document.getElementById('overlay');
+  var status = document.getElementById('status');
+  var hint = document.getElementById('hint');
+  var gl = null;
+  var program = null;
+  var texture = null;
+  var buffer = null;
+  var yaw = 0;
+  var pitch = 0;
+  var fov = 100;
+  var annotations = Array.isArray(config.annotations) ? config.annotations : [];
+  var touches = new Map();
+  var dragStart = null;
+  var pinchStart = null;
+  var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+  function post(data){ try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(data)); } catch(e) {} }
+  function showStatus(text){ status.style.display = text ? 'block' : 'none'; status.textContent = text || ''; }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+  function wrap(v){ while(v > 180) v -= 360; while(v <= -180) v += 360; return v; }
+  function rad(v){ return v * Math.PI / 180; }
+  function esc(s){ return String(s || '').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); }); }
+
+  function resize(){
+    var w = Math.max(1, Math.floor(window.innerWidth * dpr));
+    var h = Math.max(1, Math.floor(window.innerHeight * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      if (gl) gl.viewport(0, 0, w, h);
+    }
+    render();
   }
-  function resize(){var dpr=window.devicePixelRatio||1;canvas.width=Math.max(1,Math.floor(innerWidth*dpr));canvas.height=Math.max(1,Math.floor(innerHeight*dpr));canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';svg.setAttribute('width',innerWidth);svg.setAttribute('height',innerHeight);render();}
-  function render(){if(!gl||!program||!texture)return;gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);var loc=gl.getAttribLocation(program,'p');gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,'tex'),0);gl.uniform2f(gl.getUniformLocation(program,'res'),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(program,'yaw'),yaw);gl.uniform1f(gl.getUniformLocation(program,'pitch'),pitch);gl.uniform1f(gl.getUniformLocation(program,'fov'),fov);gl.drawArrays(gl.TRIANGLES,0,6);renderAnnotations();}
-  function load(){if(!imageUrl){show('No 360 photo URL was returned.');return;}var img=new Image();img.crossOrigin='anonymous';img.onload=function(){texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);show('');render();};img.onerror=function(){show('Unable to load this 360 photo.');};img.src=imageUrl;}
-  function rad(v){return v*Math.PI/180;}
-  function yawPitchToScreen(pt){var py=rad(Number(pt.yaw||0)), pp=rad(Number(pt.pitch||0));var x=Math.cos(pp)*Math.sin(py), y=Math.sin(pp), z=Math.cos(pp)*Math.cos(py);var yr=rad(-yaw), cy=Math.cos(yr), sy=Math.sin(yr);var x1=cy*x+sy*z, z1=-sy*x+cy*z;var pr=rad(pitch), cp=Math.cos(pr), sp=Math.sin(pr);var y2=cp*y-sp*z1, z2=sp*y+cp*z1;if(z2<=0.05)return null;var scale=(innerWidth/(2*Math.tan(rad(fov)*.5)));return {x:innerWidth*.5+(x1/z2)*scale,y:innerHeight*.5-(y2/z2)*scale};}
-  function annPoints(a){var pts=Array.isArray(a.points)?a.points:[];return pts.map(function(p){return {yaw:Number(p&&p.yaw||0),pitch:Number(p&&p.pitch||0)}});}
-  function addLine(a,pts,closed){if(pts.length<2)return;var path=document.createElementNS('http://www.w3.org/2000/svg','polyline');path.setAttribute('points',pts.map(function(p){return p.x+','+p.y}).join(' '));path.setAttribute('fill','none');path.setAttribute('stroke',a.color||'#ef4444');path.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');if(closed)path.setAttribute('points',pts.concat([pts[0]]).map(function(p){return p.x+','+p.y}).join(' '));svg.appendChild(path);}
-  function addRect(a,pts){if(pts.length<2){addLine(a,pts,false);return;}var x=Math.min(pts[0].x,pts[1].x),y=Math.min(pts[0].y,pts[1].y),w=Math.abs(pts[1].x-pts[0].x),h=Math.abs(pts[1].y-pts[0].y);var r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('fill','none');r.setAttribute('stroke',a.color||'#ef4444');r.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));svg.appendChild(r);}
-  function addCircle(a,pts){if(pts.length<2){addLine(a,pts,false);return;}var x=Math.min(pts[0].x,pts[1].x),y=Math.min(pts[0].y,pts[1].y),w=Math.abs(pts[1].x-pts[0].x),h=Math.abs(pts[1].y-pts[0].y);var e=document.createElementNS('http://www.w3.org/2000/svg','ellipse');e.setAttribute('cx',x+w/2);e.setAttribute('cy',y+h/2);e.setAttribute('rx',Math.max(1,w/2));e.setAttribute('ry',Math.max(1,h/2));e.setAttribute('fill','none');e.setAttribute('stroke',a.color||'#ef4444');e.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));svg.appendChild(e);}
-  function addLabel(a,pts){var text=String(a.label||'').trim();if(!text||!pts.length)return;var t=document.createElementNS('http://www.w3.org/2000/svg','text');t.textContent=text;t.setAttribute('x',pts[0].x+6);t.setAttribute('y',pts[0].y-6);t.setAttribute('fill',a.color||'#ef4444');t.setAttribute('stroke','rgba(0,0,0,.5)');t.setAttribute('stroke-width','3');t.setAttribute('paint-order','stroke');t.setAttribute('font-size','15');t.setAttribute('font-weight','800');svg.appendChild(t);}
-  function renderAnnotations(){while(svg.firstChild)svg.removeChild(svg.firstChild);annotations.forEach(function(a){var pts=annPoints(a).map(yawPitchToScreen).filter(Boolean);if(pts.length<1)return;var kind=String(a.kind||a.type||'').toLowerCase();if(kind==='rectangle'||kind==='rect')addRect(a,pts);else if(kind==='circle'||kind==='ellipse')addCircle(a,pts);else addLine(a,pts,Boolean(a.is_closed));addLabel(a,pts);});}
-  function dist(t){if(!t||t.length<2)return 0;var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
-  window.addEventListener('resize',resize);
-  canvas.addEventListener('pointerdown',function(e){canvas.setPointerCapture&&canvas.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};e.preventDefault();},{passive:false});
-  canvas.addEventListener('pointermove',function(e){if(!drag)return;yaw=wrap(drag.yaw-((e.clientX-drag.x)/Math.max(1,innerWidth))*fov*1.35);pitch=clamp(drag.pitch+((e.clientY-drag.y)/Math.max(1,innerHeight))*fov,-89,89);render();e.preventDefault();},{passive:false});
-  canvas.addEventListener('pointerup',function(){drag=null;});canvas.addEventListener('pointercancel',function(){drag=null;});
-  canvas.addEventListener('wheel',function(e){fov=clamp(fov+(e.deltaY>0?6:-6),35,110);render();e.preventDefault();},{passive:false});
-  canvas.addEventListener('touchmove',function(e){if(e.touches.length===2){var d=dist(e.touches);if(lastDist){fov=clamp(fov+((lastDist-d)/Math.max(1,innerWidth))*120,35,110);render();}lastDist=d;e.preventDefault();}},{passive:false});
-  canvas.addEventListener('touchend',function(){lastDist=0;});
-  try{init();load();}catch(e){show(String(e&&e.message||e));}
+
+  function compile(type, source){
+    var shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) || 'Shader compile failed');
+    return shader;
+  }
+
+  function initGl(){
+    gl = canvas.getContext('webgl', { antialias:true, alpha:false, preserveDrawingBuffer:false }) || canvas.getContext('experimental-webgl');
+    if (!gl) throw new Error('This device did not provide a WebGL 360 viewer.');
+    var vertex = compile(gl.VERTEX_SHADER, 'attribute vec2 a_pos; void main(){ gl_Position=vec4(a_pos,0.0,1.0); }');
+    var fragment = compile(gl.FRAGMENT_SHADER, 'precision mediump float; uniform sampler2D u_tex; uniform vec2 u_res; uniform float u_yaw; uniform float u_pitch; uniform float u_fov; const float PI=3.141592653589793; void main(){ float hfov=radians(u_fov); float fx=u_res.x/(2.0*tan(hfov*0.5)); float fy=fx; vec2 screen=vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y); float x1=(screen.x-(u_res.x*0.5))/fx; float y2=((u_res.y*0.5)-screen.y)/fy; float z2=1.0; float cp=cos(radians(u_pitch)); float sp=sin(radians(u_pitch)); float y=(cp*y2)+(sp*z2); float z1=(-sp*y2)+(cp*z2); float yawRad=radians(-u_yaw); float cy=cos(yawRad); float sy=sin(yawRad); float x=(cy*x1)-(sy*z1); float z=(sy*x1)+(cy*z1); vec3 dir=normalize(vec3(x,y,z)); float lon=atan(dir.x, dir.z); float lat=asin(clamp(dir.y,-1.0,1.0)); vec2 uv=vec2(0.5 + lon/(2.0*PI), 0.5 - lat/PI); gl_FragColor=texture2D(u_tex, uv); }');
+    program = gl.createProgram();
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || 'Program link failed');
+    gl.useProgram(program);
+    buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(program, 'a_pos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  function loadImage(url){
+    showStatus('Loading 360 photo...');
+    var img = new Image();
+    img.onload = function(){
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        showStatus('');
+        render();
+      } catch(e) {
+        showStatus('Unable to open this 360 photo in the dome viewer.');
+        post({ type:'error', message:String(e && e.message || e) });
+      }
+    };
+    img.onerror = function(){ showStatus('Unable to load the 360 photo image.'); post({ type:'error', message:'Unable to load the 360 photo image.' }); };
+    img.src = url;
+  }
+
+  function render(){
+    if (!gl || !program) return;
+    gl.useProgram(program);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_res'), canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_yaw'), yaw);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_pitch'), pitch);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_fov'), fov);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    renderAnnotations();
+    hint.innerHTML = 'Drag to look around<small>Pinch to zoom · full sphere</small>';
+  }
+
+  function shortestAngleDelta(fromYaw, toYaw){ return wrap(Number(toYaw || 0) - Number(fromYaw || 0)); }
+  function getProjectionState(){
+    var width = Math.max(1, window.innerWidth || canvas.clientWidth || 1);
+    var height = Math.max(1, window.innerHeight || canvas.clientHeight || 1);
+    var hfov = rad(fov);
+    var fx = width / (2 * Math.tan(hfov / 2));
+    var vfov = 2 * Math.atan((height / width) * Math.tan(hfov / 2));
+    var fy = height / (2 * Math.tan(vfov / 2));
+    return { width:width, height:height, fx:fx, fy:fy };
+  }
+  function yawPitchToScreen(point){
+    var state = getProjectionState();
+    var pointYaw = Number(point && point.yaw || 0);
+    var pointPitch = Number(point && point.pitch || 0);
+    var yawDelta = rad(shortestAngleDelta(yaw, pointYaw));
+    var pitchRad = rad(pointPitch);
+    var x = Math.cos(pitchRad) * Math.sin(yawDelta);
+    var y = Math.sin(pitchRad);
+    var z = Math.cos(pitchRad) * Math.cos(yawDelta);
+    var pitchRadView = rad(pitch);
+    var cp = Math.cos(pitchRadView);
+    var sp = Math.sin(pitchRadView);
+    var y2 = (cp * y) - (sp * z);
+    var z2 = (sp * y) + (cp * z);
+    if (z2 <= 0.03) return null;
+    return { x:state.width / 2 + (x / z2) * state.fx, y:state.height / 2 - (y2 / z2) * state.fy, visible:true };
+  }
+  function angularDistanceDegrees(a,b){
+    var lat1=rad(a.pitch), lon1=rad(a.yaw), lat2=rad(b.pitch), lon2=rad(b.yaw);
+    var sinDLat=Math.sin((lat2-lat1)/2), sinDLon=Math.sin((lon2-lon1)/2);
+    var h=sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLon*sinDLon;
+    return (2*Math.asin(Math.min(1,Math.sqrt(Math.max(0,h))))) * 180 / Math.PI;
+  }
+  function destinationPointOnSphere(center,bearingDeg,distanceDeg){
+    var lat1=rad(center.pitch), lon1=rad(center.yaw), brng=rad(bearingDeg), ang=rad(distanceDeg);
+    var sinLat1=Math.sin(lat1), cosLat1=Math.cos(lat1), sinAng=Math.sin(ang), cosAng=Math.cos(ang);
+    var lat2=Math.asin(sinLat1*cosAng + cosLat1*sinAng*Math.cos(brng));
+    var lon2=lon1 + Math.atan2(Math.sin(brng)*sinAng*cosLat1, cosAng - sinLat1*Math.sin(lat2));
+    return { yaw:wrap(lon2 * 180 / Math.PI), pitch:lat2 * 180 / Math.PI };
+  }
+  function circleSamples(annotation, sampleCount){
+    var pts = annotation.points || [];
+    if (pts.length < 2) return [];
+    var center = { yaw:Number(pts[0].yaw), pitch:Number(pts[0].pitch) };
+    var edge = { yaw:Number(pts[1].yaw), pitch:Number(pts[1].pitch) };
+    var radiusDeg = angularDistanceDegrees(center, edge);
+    if (!Number.isFinite(radiusDeg) || radiusDeg <= 0) return [];
+    var samples = [];
+    for (var i=0; i<=sampleCount; i++) samples.push(yawPitchToScreen(destinationPointOnSphere(center, (i / sampleCount) * 360, radiusDeg)));
+    return samples;
+  }
+  function rectSphericalCorners(annotation){
+    var pts = Array.isArray(annotation.points) ? annotation.points : [];
+    if (pts.length < 2) return [];
+    var p1 = pts[0], p2 = pts[1];
+    return [
+      { yaw:p1.yaw, pitch:p1.pitch },
+      { yaw:p2.yaw, pitch:p1.pitch },
+      { yaw:p2.yaw, pitch:p2.pitch },
+      { yaw:p1.yaw, pitch:p2.pitch },
+      { yaw:p1.yaw, pitch:p1.pitch }
+    ];
+  }
+  function shapePoints(annotation){
+    var pts = Array.isArray(annotation.points) ? annotation.points : [];
+    if (annotation.kind === 'rectangle' || annotation.kind === 'rect') return rectSphericalCorners(annotation).map(yawPitchToScreen);
+    return pts.map(yawPitchToScreen);
+  }
+  function lineEl(a, b, ann){
+    if (!a || !b) return '';
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.sqrt(dx*dx + dy*dy);
+    if (!isFinite(len) || len < 1 || len > window.innerWidth * 1.7) return '';
+    var angle = Math.atan2(dy, dx);
+    var sw = Math.max(1, Number(ann.strokeWidth || ann.stroke_width || 3));
+    return '<div class="ann-line" style="left:' + a.x + 'px;top:' + (a.y - sw/2) + 'px;width:' + len + 'px;height:' + sw + 'px;background:' + esc(ann.color || '#ef4444') + ';transform:rotate(' + angle + 'rad)"></div>';
+  }
+  function arrowHeadEl(a, b, ann){
+    if (!a || !b) return '';
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.sqrt(dx*dx + dy*dy);
+    if (!isFinite(len) || len < 8 || len > window.innerWidth * 1.7) return '';
+    var angle = Math.atan2(dy, dx);
+    var color = esc(ann.color || '#ef4444');
+    return '<div class="ann-arrow-head" style="left:' + b.x + 'px;top:' + (b.y - 8) + 'px;color:' + color + ';transform:rotate(' + angle + 'rad) translateX(-12px)"></div>';
+  }
+  function renderArrow(points, ann){ if (!points || points.length < 2) return ''; var a=points[0], b=points[points.length-1]; return lineEl(a,b,ann)+arrowHeadEl(a,b,ann); }
+  function renderPolyline(points, ann){ var html=''; for (var i=1;i<points.length;i++) html += lineEl(points[i-1], points[i], ann); return html; }
+  function renderLabel(point, ann){
+    var text = String(ann.label || '').trim();
+    if (!text || !point) return '';
+    return '<div class="ann-label" style="left:' + point.x + 'px;top:' + point.y + 'px;color:' + esc(ann.color || '#ef4444') + '">' + esc(text) + '</div>';
+  }
+  function renderOneAnn(ann){
+    var kind = String(ann.kind || ann.type || 'line').toLowerCase();
+    var points = [];
+    if (kind === 'circle' || kind === 'ellipse') points = circleSamples(ann, 96).filter(Boolean);
+    else points = shapePoints(ann).filter(Boolean);
+    if (points.length < 1) return '';
+    var html = '';
+    if (kind === 'arrow') html = renderArrow(points, ann);
+    else html = renderPolyline(points, ann);
+    html += renderLabel(points[0], ann);
+    return html;
+  }
+  function renderAnnotations(){ overlay.innerHTML = annotations.map(renderOneAnn).join(''); }
+
+  function touchDistance(){
+    var arr = Array.from(touches.values());
+    if (arr.length < 2) return 0;
+    var dx = arr[0].x - arr[1].x;
+    var dy = arr[0].y - arr[1].y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  function pointerDown(e){
+    e.preventDefault();
+    touches.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    if (touches.size === 2) { pinchStart = { distance: touchDistance(), fov:fov }; dragStart = null; return; }
+    dragStart = { x:e.clientX, y:e.clientY, yaw:yaw, pitch:pitch };
+  }
+  function pointerMove(e){
+    if (!touches.has(e.pointerId)) return;
+    e.preventDefault();
+    touches.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (touches.size >= 2 && pinchStart) {
+      var ratio = touchDistance() / Math.max(1, pinchStart.distance || 1);
+      fov = clamp(pinchStart.fov / Math.max(0.35, Math.min(2.5, ratio)), 35, 110);
+      render();
+      return;
+    }
+    if (!dragStart) return;
+    yaw = wrap(dragStart.yaw - ((e.clientX - dragStart.x) / Math.max(1, window.innerWidth)) * fov * 1.25);
+    pitch = clamp(dragStart.pitch + ((e.clientY - dragStart.y) / Math.max(1, window.innerHeight)) * fov, -89, 89);
+    render();
+  }
+  function pointerUp(e){ touches.delete(e.pointerId); if (!touches.size) { dragStart=null; pinchStart=null; } }
+
+  window.addEventListener('resize', resize);
+  canvas.addEventListener('pointerdown', pointerDown, { passive:false });
+  canvas.addEventListener('pointermove', pointerMove, { passive:false });
+  canvas.addEventListener('pointerup', pointerUp, { passive:false });
+  canvas.addEventListener('pointercancel', pointerUp, { passive:false });
+  canvas.addEventListener('wheel', function(e){ fov = clamp(fov + (e.deltaY > 0 ? 6 : -6), 35, 110); render(); e.preventDefault(); }, { passive:false });
+
+  try { initGl(); resize(); loadImage(config.imageUrl || ''); } catch(e) { showStatus(String(e && e.message || e)); post({ type:'error', message:String(e && e.message || e) }); }
 })();
-</script></body></html>`;
+</script>
+</body>
+</html>`;
 }
 
 export default function SubcontractorSiteWalk360Screen({ session, project, initialRedline360Pin, onBack, onHome }) {
