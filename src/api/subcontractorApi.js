@@ -228,7 +228,7 @@ export async function updateSubcontractorSiteDailyTrackerRecord(portalUrl, acces
   return parseJsonResponse(response);
 }
 
-export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset }) {
+export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset, filenameBase }) {
   const form = new FormData();
   form.append('site_id', String(siteId || ''));
   form.append('record_uid', String(recordUid || ''));
@@ -236,7 +236,7 @@ export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, access
   if (caption) form.append('caption', caption);
   form.append('files', {
     uri: asset.uri,
-    name: asset.fileName || `site-tracker-${Date.now()}.jpg`,
+    name: filenameBase ? `${filenameBase}.jpg` : (asset.fileName || `site-tracker-${Date.now()}.jpg`),
     type: asset.mimeType || 'image/jpeg',
   });
 

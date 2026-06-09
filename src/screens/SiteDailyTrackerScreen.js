@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -247,7 +247,15 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
   const [refreshing, setRefreshing] = useState(false);
   const [records, setRecords] = useState([]);
   const [photoStatuses, setPhotoStatuses] = useState({});
-  const [recentPhotoBases, setRecentPhotoBases] = useState({});
+  const [recentPhotoBases, setRecentPhotoBasesState] = useState({});
+  const recentPhotoBasesRef = useRef({});
+  const setRecentPhotoBases = useCallback((updater) => {
+    setRecentPhotoBasesState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : (updater || {});
+      recentPhotoBasesRef.current = next;
+      return next;
+    });
+  }, []);
   const [siteInfo, setSiteInfo] = useState(site || {});
   const [filters, setFilters] = useState({ tasks: [], locations: [] });
   const [techTrackingEnabled, setTechTrackingEnabled] = useState(true);
@@ -269,7 +277,7 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
   const [techPrompt, setTechPrompt] = useState(null);
   const [selectedTechs, setSelectedTechs] = useState({});
 
-  const load = useCallback(async ({ silent = false } = {}) => {
+  const load = useCallback(async ({ silent = false, preserveRecentPhotos = false } = {}) => {
     if (!token) return;
     if (!silent) setLoading(true);
     try {
@@ -278,15 +286,23 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
       setRecords((payload?.records || []).map(normalizedRecord));
       setFilters(payload?.filters || { tasks: [], locations: [] });
       setTechTrackingEnabled(payload?.tech_tracking_enabled !== false);
-      setPhotoStatuses(payload?.photo_statuses || payload?.photo_status_by_base || {});
-      setRecentPhotoBases({});
+      const incomingPhotoStatuses = payload?.photo_statuses || payload?.photo_status_by_base || {};
+      setPhotoStatuses((prev) => {
+        if (!preserveRecentPhotos) return incomingPhotoStatuses;
+        const pending = {};
+        for (const key of Object.keys(recentPhotoBasesRef.current || {})) {
+          pending[key] = 'pending';
+        }
+        return { ...incomingPhotoStatuses, ...pending };
+      });
+      if (!preserveRecentPhotos) setRecentPhotoBases({});
     } catch (error) {
       Alert.alert('Site Daily Tracker', error.message || 'Unable to load this site tracker.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [portalUrl, token, selectedSiteName]);
+  }, [portalUrl, token, selectedSiteName, setRecentPhotoBases]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -437,17 +453,47 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
 
       const asset = result.assets[0];
       const base = toPhotoFilenameBase(row);
-      setRecentPhotoBases((prev) => ({ ...prev, [base]: true, [base.toLowerCase()]: true }));
+      const pendingKeys = {
+        [base]: true,
+        [base.toLowerCase()]: true,
+        [String(row.id)]: true,
+        [String(row.uid || row.id)]: true,
+      };
+      setRecentPhotoBases((prev) => ({ ...prev, ...pendingKeys }));
+      setPhotoStatuses((prev) => ({
+        ...prev,
+        [base]: 'pending',
+        [base.toLowerCase()]: 'pending',
+        [String(row.id)]: 'pending',
+        [String(row.uid || row.id)]: 'pending',
+      }));
+      patchLocal(row.id, { photo_status: 'pending' });
 
-      await uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, token, {
+      const uploadResult = await uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, token, {
         siteId: sid,
         recordUid: row.uid || row.id,
         caption: photoCaptionForRow(row),
         asset,
+        filenameBase: base,
       });
 
-      patchLocal(row.id, { photo_status: 'pending' });
-      await load({ silent: true });
+      const returnedBase = uploadResult?.status_base || uploadResult?.base || uploadResult?.photo_base;
+      const returnedStatus = uploadResult?.photo_status || uploadResult?.status || uploadResult?.status_meta?.review || 'pending';
+      const returnedStatuses = uploadResult?.photo_statuses || {};
+      if (returnedBase || Object.keys(returnedStatuses).length) {
+        const extraPending = { ...returnedStatuses };
+        if (returnedBase) {
+          extraPending[returnedBase] = returnedStatus;
+          extraPending[String(returnedBase).toLowerCase()] = returnedStatus;
+        }
+        setRecentPhotoBases((prev) => {
+          const next = { ...prev };
+          for (const key of Object.keys(extraPending)) next[key] = true;
+          return next;
+        });
+        setPhotoStatuses((prev) => ({ ...prev, ...extraPending }));
+      }
+      await load({ silent: true, preserveRecentPhotos: true });
     } catch (error) {
       Alert.alert('Photo Upload Failed', error?.message || 'Unable to take or upload this photo.');
     }
@@ -545,17 +591,12 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
         </View>
 
         <View style={styles.mainScroll}>
-          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.tableWrapper} bounces={false} overScrollMode="never" directionalLockEnabled scrollEventThrottle={16} removeClippedSubviews={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.tableWrapper}>
             <View style={[styles.table, { width: tableMetrics.tableWidth }]}> 
               <TableHeader cols={tableMetrics.cols} compact={!isTablet} />
               <ScrollView
                 style={styles.rowsScroll}
-                bounces={false}
-                overScrollMode="never"
-                nestedScrollEnabled
-                scrollEventThrottle={16}
-                removeClippedSubviews={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true }); }} tintColor={PRIMARY} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true, preserveRecentPhotos: true }); }} tintColor={PRIMARY} />}
               >
                 {visibleRecords.length ? visibleRecords.map((row, index) => (
                   <TableRow
