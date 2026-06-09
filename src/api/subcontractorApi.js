@@ -9,6 +9,7 @@ const SESSION_WEBVIEW_PATH = '/mobile/subcontractor/api/session';
 const SITE_DOCUMENTS_PATH = '/mobile/subcontractor/api/site-documents/files';
 const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/delete';
 const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-tracker';
+const SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH = '/mobile/subcontractor/api/site-daily-tracker';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -195,6 +196,44 @@ export async function uploadSubcontractorMaterialTrackerPhotos(portalUrl, access
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ client_id: clientId, photos: photos || [] }),
+  });
+  return parseJsonResponse(response);
+}
+
+
+export async function loadSubcontractorSiteDailyTracker(portalUrl, accessToken, siteName) {
+  const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH}${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function updateSubcontractorSiteDailyTrackerRecord(portalUrl, accessToken, recordUid, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH}/records/${encodeURIComponent(recordUid)}/update`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset }) {
+  if (!asset?.uri) throw new Error('No photo was selected.');
+  const filename = asset.fileName || asset.filename || `site-tracker-photo-${Date.now()}.jpg`;
+  const mime = asset.mimeType || asset.type || 'image/jpeg';
+  const form = new FormData();
+  form.append('site_id', String(siteId || '0'));
+  form.append('record_uid', String(recordUid || ''));
+  form.append('category', 'subcontractor');
+  form.append('caption', caption || '');
+  form.append('files', { uri: asset.uri, name: filename, type: mime });
+
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH}/photo-upload`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: form,
   });
   return parseJsonResponse(response);
 }
