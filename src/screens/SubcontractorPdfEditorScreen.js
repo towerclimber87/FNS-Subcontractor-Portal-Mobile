@@ -5853,18 +5853,10 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
   }
 
   async function deleteSelected() {
+    // Subcontractor editor: pins are not deletable from mobile. The trash button
+    // only removes drawn annotations that the subcontractor is allowed to edit.
     if (selectedPin?.id) {
-      if (pinKind(selectedPin) === 'note') {
-        await deleteNotePin(selectedPin);
-        return;
-      }
-      try {
-        await deleteMobileRedlinePin(portalUrl, token, selectedPin.id);
-        setSelectedPin(null);
-        await reloadPageData();
-      } catch (err) {
-        Alert.alert('Delete Failed', err?.message || 'Unable to delete selected pin.');
-      }
+      setSelectedPin(null);
       return;
     }
     if (!selectedAnn?.id) return;
@@ -7192,7 +7184,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
               <Text style={styles.widthToolPill}>{strokeWidth}</Text>
             </Pressable>
             <View style={styles.toolDivider} />
-            <Pressable style={[styles.deleteBtn, !(selectedPin || selectedAnn) && styles.disabled]} disabled={!(selectedPin || selectedAnn)} onPress={deleteSelected}><Text style={styles.deleteBtnText}>🗑</Text></Pressable>
+            <Pressable style={[styles.deleteBtn, !selectedAnn && styles.disabled]} disabled={!selectedAnn} onPress={deleteSelected}><Text style={styles.deleteBtnText}>🗑</Text></Pressable>
           </View>
         </View>
       </View>
@@ -7406,7 +7398,6 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
     const actions = [];
     if (canRename) actions.push({ label: 'Rename / Reorder Pages', onPress: () => { setMenuVisible(false); setPagesVisible(true); } });
     actions.push({ label: 'Search Pins', onPress: () => { setMenuVisible(false); setSearchVisible(true); } });
-    actions.push({ label: '360 Camera', onPress: () => { setMenuVisible(false); setCamera360Visible(true); refreshInsta360CameraStatus().catch(() => {}); } });
     const perm = payload?.sitewalk_permission || {};
     const toggleMenuPerm = async (key) => {
       if (!selectedSiteId && !selectedSiteName) {
@@ -7621,6 +7612,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
     if (!pin) return null;
     const label = pinDisplayLabel(pin) || (pinKind(pin) === 'camera_misc' ? 'Photo' : `Pin ${pin.id}`);
     const hasRegularPhoto = pinHasRegularPhoto(pin);
+    const has360 = pinHas360Photo(pin);
     return (
       <Modal visible={!!pin} transparent animationType="fade" onRequestClose={() => setPhotoOptionsPin(null)}>
         <View style={styles.modalBackdrop}>
@@ -7631,51 +7623,30 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
                 <Text style={styles.modalTitle}>{t("Pin Options")}</Text>
                 <Text style={styles.pinOptionsSubtitle}>{label}</Text>
               </View>
-              <Pressable style={styles.pinOptionsWhiteboardBtn} onPress={() => openWhiteboardForPin(pin)}><Text style={styles.pinOptionsWhiteboardText}>{t("Whiteboard")}</Text></Pressable>
               <Pressable style={styles.pinOptionsCloseBtn} onPress={() => setPhotoOptionsPin(null)}><Text style={styles.pinOptionsCloseText}>×</Text></Pressable>
             </View>
             <View style={styles.pinOptionsGrid}>
               {hasRegularPhoto ? (
-                <>
-                  <Pressable style={styles.pinOptionsMarkupBtn} onPress={() => viewPhotoPin(pin)}><Text style={styles.pinOptionsMarkupText}>{t("View / Markup Photo")}</Text></Pressable>
-                  <View style={styles.pinOptionsButtonRow}>
-                    <Pressable style={styles.pinOptionsPrimaryHalfBtn} onPress={() => pickCameraPhotoForPin(pin, 'library', false)}><Text style={styles.pinOptionsPrimaryText}>{t("Replace Photo")}</Text></Pressable>
-                    <Pressable style={styles.pinOptionsPrimaryHalfBtn} onPress={() => queueCameraPhotoForPin(pin, 'library', true)}><Text style={styles.pinOptionsPrimaryText}>{t("Add Additional Photos")}</Text></Pressable>
-                  </View>
-                </>
+                <Pressable style={styles.pinOptionsMarkupBtn} onPress={() => viewPhotoPin(pin)}><Text style={styles.pinOptionsMarkupText}>{t("View / Markup Photo")}</Text></Pressable>
               ) : (
-                <>
-                  <Pressable style={styles.pinOptionsPrimaryBtn} onPress={() => queueCameraPhotoForPin(pin, 'camera', false)}><Text style={styles.pinOptionsPrimaryText}>{t("Capture")}</Text></Pressable>
-                  <Pressable style={styles.pinOptionsPrimaryBtn} onPress={() => queueCameraPhotoForPin(pin, 'library', false)}><Text style={styles.pinOptionsPrimaryText}>{t("Upload Photo")}</Text></Pressable>
-                </>
+                <View style={styles.pinOptionsReadOnlyCard}>
+                  <Text style={styles.pinOptionsReadOnlyTitle}>{t("No regular photo linked")}</Text>
+                  <Text style={styles.pinOptionsReadOnlyText}>{t("Subcontractors can view linked photos, but cannot replace or add photos to existing pins.")}</Text>
+                </View>
               )}
               <Pressable style={styles.pinOptionsSoftBtn} onPress={() => { setPhotoOptionsPin(null); setPinEditor(pin); }}><Text style={styles.pinOptionsBtnText}>{t("Rename")}</Text></Pressable>
-              <Pressable style={styles.pinOptionsDangerBtn} onPress={() => deletePhotoPin(pin)}><Text style={styles.pinOptionsDangerText}>{t("Delete Pin")}</Text></Pressable>
             </View>
             <View style={styles.pinOptions360Row}>
               <View style={styles.pinOptions360Info}>
                 <Text style={styles.pinOptions360Title}>{t("360 Photo")}</Text>
-                <Text style={styles.pinOptions360Sub}>{pinIsExpected360(pin) ? (pinHas360Photo(pin) ? 'Photo linked' : 'Photo needed') : 'Off'}</Text>
+                <Text style={styles.pinOptions360Sub}>{has360 ? 'Photo linked' : 'No 360 photo linked'}</Text>
               </View>
               <View style={styles.pinOptions360Actions}>
-                {pinHas360Photo(pin) ? (
+                {has360 ? (
                   <Pressable style={styles.pinOptions360ViewBtn} onPress={() => view360Pin(pin)}><Text style={styles.pinOptions360ViewText}>{t("View 360 Photo")}</Text></Pressable>
                 ) : null}
-                {pinIsExpected360(pin) && !pinHas360Photo(pin) ? (
-                  <Pressable
-                    style={[styles.pinOptions360CaptureBtn, camera360CaptureBusy && styles.disabled]}
-                    disabled={camera360CaptureBusy}
-                    onPress={() => open360CaptureForPin(pin)}
-                  >
-                    <Text style={styles.pinOptions360CaptureText}>{camera360CaptureBusy ? 'Capturing...' : 'Capture 360 Photo'}</Text>
-                  </Pressable>
-                ) : null}
-                <Pressable style={[styles.pinOptions360Toggle, pinIsExpected360(pin) && styles.pinOptions360ToggleOn]} onPress={() => togglePinExpected360(pin)}><Text style={[styles.pinOptions360ToggleText, pinIsExpected360(pin) && styles.pinOptions360ToggleTextOn]}>{pinIsExpected360(pin) ? 'On' : 'Off'}</Text></Pressable>
               </View>
             </View>
-            {!!camera360CaptureStatus && camera360CaptureBusy ? (
-              <Text style={styles.pinOptions360Status}>{camera360CaptureStatus}</Text>
-            ) : null}
           </View>
         </View>
       </Modal>
@@ -8026,7 +7997,6 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
           {renderCanvas()}
         </View>
         {renderRightRail()}
-        {renderWhiteboardBadge()}
       </View>
       {renderPageNav()}
       {renderGoPageModal()}
@@ -8036,11 +8006,8 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
       {renderWidthPicker()}
       {renderIconPicker()}
       {renderMenu()}
-      {renderCamera360Manager()}
-      {render360CaptureModal()}
       {renderCameraPhotoPrompt()}
       {renderPhotoPinOptions()}
-      {renderPinWhiteboard()}
       {renderPinEditor()}
       {renderNoteEditor()}
       {renderRights()}
@@ -8324,6 +8291,9 @@ const styles = StyleSheet.create({
   pinOptionsDangerBtn: { flexGrow: 1, flexBasis: '45%', minHeight: 42, borderRadius: 11, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 },
   pinOptionsCancelBtn: { flexGrow: 1, flexBasis: '45%', minHeight: 42, borderRadius: 11, backgroundColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 },
   pinOptionsBtnText: { color: '#111827', fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  pinOptionsReadOnlyCard: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#dbe4ef', borderRadius: 12, padding: 10, gap: 3 },
+  pinOptionsReadOnlyTitle: { color: '#0f172a', fontSize: 12, fontWeight: '900' },
+  pinOptionsReadOnlyText: { color: '#64748b', fontSize: 11, fontWeight: '800', lineHeight: 15 },
   pinOptionsPrimaryText: { color: '#ffffff', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   pinOptionsDangerText: { color: '#ffffff', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   pinOptions360Row: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
