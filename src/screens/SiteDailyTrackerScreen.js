@@ -191,6 +191,19 @@ function derivePhotoStatus(row, photoStatuses, recentPhotoBases = {}) {
   if (recentPhotoBases?.[base] || recentPhotoBases?.[base.toLowerCase()]) {
     return { status: 'pending', label: 'Uploaded photo pending review' };
   }
+  const meta = photoStatuses?.[base] || photoStatuses?.[base.toLowerCase()] || photoStatuses?.[row?.id] || photoStatuses?.[row?.uid];
+  if (meta && typeof meta === 'object') {
+    if (!meta.hasAsset && !meta.hasSubcontractor) return { status: 'none', label: 'No photo' };
+    const review = clean(meta.review || meta.status || meta.review_status).toLowerCase();
+    if (['approved', 'rejected', 'pending', 'in_progress'].includes(review)) {
+      return { status: review, label: `${review.replace(/_/g, ' ')} photo` };
+    }
+    return { status: 'pending', label: 'Photo pending review' };
+  }
+  const mapped = clean(meta).toLowerCase();
+  if (['approved', 'rejected', 'pending', 'in_progress'].includes(mapped)) {
+    return { status: mapped, label: `${mapped.replace(/_/g, ' ')} photo` };
+  }
   const direct = clean(row?.photo_status).toLowerCase();
   if (['approved', 'rejected', 'pending', 'in_progress'].includes(direct)) {
     return { status: direct, label: `${direct.replace(/_/g, ' ')} photo` };
@@ -265,7 +278,7 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
       setRecords((payload?.records || []).map(normalizedRecord));
       setFilters(payload?.filters || { tasks: [], locations: [] });
       setTechTrackingEnabled(payload?.tech_tracking_enabled !== false);
-      setPhotoStatuses({});
+      setPhotoStatuses(payload?.photo_statuses || payload?.photo_status_by_base || {});
       setRecentPhotoBases({});
     } catch (error) {
       Alert.alert('Site Daily Tracker', error.message || 'Unable to load this site tracker.');
@@ -532,11 +545,16 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
         </View>
 
         <View style={styles.mainScroll}>
-          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.tableWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.tableWrapper} bounces={false} overScrollMode="never" directionalLockEnabled scrollEventThrottle={16} removeClippedSubviews={false}>
             <View style={[styles.table, { width: tableMetrics.tableWidth }]}> 
               <TableHeader cols={tableMetrics.cols} compact={!isTablet} />
               <ScrollView
                 style={styles.rowsScroll}
+                bounces={false}
+                overScrollMode="never"
+                nestedScrollEnabled
+                scrollEventThrottle={16}
+                removeClippedSubviews={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true }); }} tintColor={PRIMARY} />}
               >
                 {visibleRecords.length ? visibleRecords.map((row, index) => (
@@ -634,7 +652,6 @@ function TableRow({ row, index, editing, photoStatuses, recentPhotoBases, cols, 
     <View style={rowStyle}>
       <Pressable style={[styles.td, compact && styles.tdCompact, styles.nameCell, { width: cols.name }]} onLongPress={onHistory} delayLongPress={400} onPress={editing && !locked ? () => onEdit(row, 'item_name', 'Name') : undefined}>
         <Text style={styles.boldCell}>{row.name}</Text>
-        {shouldShowHistoryHint(row.name) ? <Text style={styles.historyHintText}>{t("Hold for history")}</Text> : null}
       </Pressable>
       <Pressable style={[styles.td, compact && styles.tdCompact, { width: cols.task }]} onPress={editing && !locked ? () => onEdit(row, 'task', 'Task') : undefined}>
         <Text style={styles.boldCell}>{row.task}</Text>
@@ -927,7 +944,7 @@ const styles = StyleSheet.create({
   th: { paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', justifyContent: 'center' },
   thCompact: { paddingHorizontal: 5, paddingVertical: 6 },
   thText: { fontSize: 12, fontWeight: '700', color: '#111827', textTransform: 'capitalize' },
-  tr: { flexDirection: 'row', minHeight: 46, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  tr: { flexDirection: 'row', minHeight: 46, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', overflow: 'hidden' },
   trCompact: { minHeight: 42 },
   trEven: { backgroundColor: '#fafafa' },
   lockedRow: { opacity: 0.72, backgroundColor: '#f3f4f6' },
