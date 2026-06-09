@@ -300,3 +300,65 @@ export function subcontractorMediaUrl(portalUrl, path) {
   if (/^https?:\/\//i.test(raw) || raw.startsWith('file:') || raw.startsWith('data:')) return raw;
   return `${normalizePortalUrl(portalUrl)}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
+
+export async function loadSubcontractorSiteWalkRedlines(portalUrl, accessToken, { siteName, sitewalkDesc = '' } = {}) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  if (sitewalkDesc) params.set('sitewalk_desc', sitewalkDesc);
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines?${params.toString()}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function loadSubcontractorRedlinePageData(portalUrl, accessToken, pageId) {
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/page-data?page_id=${encodeURIComponent(String(pageId || ''))}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function createSubcontractorRedlineAnnotation(portalUrl, accessToken, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, '/mobile/subcontractor/api/site-walk-redlines/annotations'), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function deleteSubcontractorRedlineAnnotation(portalUrl, accessToken, annotationId) {
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/annotations/${encodeURIComponent(String(annotationId || ''))}`), {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function createSubcontractorRedlinePin(portalUrl, accessToken, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, '/mobile/subcontractor/api/site-walk-redlines/pins'), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function updateSubcontractorRedlinePin(portalUrl, accessToken, pinId, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/pins/${encodeURIComponent(String(pinId || ''))}`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(response);
+}
+
+export async function deleteSubcontractorRedlinePin(portalUrl, accessToken, pinId) {
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/pins/${encodeURIComponent(String(pinId || ''))}`), {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
