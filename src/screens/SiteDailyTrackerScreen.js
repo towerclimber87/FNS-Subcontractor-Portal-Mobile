@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   InteractionManager,
   KeyboardAvoidingView,
   Modal,
@@ -591,16 +592,35 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
         </View>
 
         <View style={styles.mainScroll}>
-          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.tableWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator
+            style={styles.tableWrapper}
+            contentContainerStyle={[styles.tableScrollerContent, { minWidth: tableMetrics.tableWidth }]}
+            directionalLockEnabled
+            nestedScrollEnabled
+            bounces={false}
+            alwaysBounceHorizontal={false}
+            overScrollMode="never"
+            scrollEventThrottle={16}
+          >
             <View style={[styles.table, { width: tableMetrics.tableWidth }]}> 
               <TableHeader cols={tableMetrics.cols} compact={!isTablet} />
-              <ScrollView
+              <FlatList
                 style={styles.rowsScroll}
+                data={visibleRecords}
+                keyExtractor={(row) => String(row.id)}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                directionalLockEnabled
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={18}
+                maxToRenderPerBatch={18}
+                windowSize={7}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load({ silent: true, preserveRecentPhotos: true }); }} tintColor={PRIMARY} />}
-              >
-                {visibleRecords.length ? visibleRecords.map((row, index) => (
+                ListEmptyComponent={<View style={[styles.emptyRow, { width: tableMetrics.tableWidth }]}><Text style={styles.emptyText}>{t("No matching tracker items.")}</Text></View>}
+                renderItem={({ item: row, index }) => (
                   <TableRow
-                    key={row.id}
                     row={row}
                     index={index}
                     editing={editing}
@@ -615,10 +635,8 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
                     onJumper={() => handleJumper(row)}
                     onPhoto={() => handlePhoto(row)}
                   />
-                )) : (
-                  <View style={[styles.emptyRow, { width: tableMetrics.tableWidth }]}><Text style={styles.emptyText}>{t("No matching tracker items.")}</Text></View>
                 )}
-              </ScrollView>
+              />
             </View>
           </ScrollView>
         </View>
@@ -980,7 +998,8 @@ const styles = StyleSheet.create({
   mainScroll: { flex: 1 },
   rowsScroll: { flex: 1 },
   tableWrapper: { flex: 1, margin: 0, padding: 0 },
-  table: { flex: 1, backgroundColor: '#fff', marginBottom: 0, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  tableScrollerContent: { flexGrow: 0 },
+  table: { height: '100%', backgroundColor: '#fff', marginBottom: 0, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   tableHeader: { flexDirection: 'row', backgroundColor: '#e8eaf6', zIndex: 10, elevation: 4 },
   th: { paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', justifyContent: 'center' },
   thCompact: { paddingHorizontal: 5, paddingVertical: 6 },
