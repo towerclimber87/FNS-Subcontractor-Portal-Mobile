@@ -3080,9 +3080,11 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
       Math.round(nextState.panOffset.x),
       Math.round(nextState.panOffset.y),
     ].join('|');
-    if (typeof onViewportStateChange === 'function' && lastReportedViewportKeyRef.current !== key) {
+    if (lastReportedViewportKeyRef.current !== key) {
       lastReportedViewportKeyRef.current = key;
-      onViewportStateChange(nextState);
+      if (typeof onViewportStateChange === 'function') {
+        onViewportStateChange(nextState);
+      }
     }
     return nextState;
   }, [currentSitewalk, onViewportStateChange, page?.id, page?.page_id, panOffset, selectedSiteId, selectedSiteName, zoomScale]);
