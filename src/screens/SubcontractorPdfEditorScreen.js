@@ -3061,7 +3061,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
 
 
   const reportViewportState = useCallback((override = {}) => {
-    if (typeof onViewportStateChange !== 'function' || !page?.id) return null;
+    if (!page?.id) return null;
     const nextScale = clampZoom(override.zoomScale ?? zoomScaleRef.current ?? zoomScale);
     const nextPan = override.panOffset || panOffsetRef.current || panOffset;
     const nextState = {
@@ -3080,7 +3080,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
       Math.round(nextState.panOffset.x),
       Math.round(nextState.panOffset.y),
     ].join('|');
-    if (lastReportedViewportKeyRef.current !== key) {
+    if (typeof onViewportStateChange === 'function' && lastReportedViewportKeyRef.current !== key) {
       lastReportedViewportKeyRef.current = key;
       onViewportStateChange(nextState);
     }
