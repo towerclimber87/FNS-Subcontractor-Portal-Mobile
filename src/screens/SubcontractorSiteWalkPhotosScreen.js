@@ -43,6 +43,14 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
   const selectedSite = siteName(project);
   const initialPhotoId = pinPhotoId(initialRedlinePhotoPin);
   const initialSitewalk = clean(initialRedlinePhotoPin?.sitewalk_desc || initialRedlinePhotoPin?.site_walk_desc);
+  const openedFromRedlinePin = Boolean(clean(initialRedlinePhotoPin?.id || initialRedlinePhotoPin?.redline_pin_id) || initialPhotoId || pinPhotoUrl(initialRedlinePhotoPin));
+  const closeSelected = useCallback(() => {
+    if (openedFromRedlinePin && typeof onBack === 'function') {
+      onBack();
+      return;
+    }
+    setSelected(null);
+  }, [openedFromRedlinePin, onBack]);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!selectedSite) return;
@@ -99,8 +107,8 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
           )} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No photos found</Text><Text style={styles.muted}>This subcontractor view only shows SiteWalk photos allowed for this site/SiteWalk.</Text></View>} />
         )}
       </View>
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
-        <View style={styles.modalBg}><View style={styles.viewer}><View style={styles.viewerHeader}><Text style={styles.viewerTitle} numberOfLines={1}>{selected ? photoTitle(selected) : ''}</Text><Pressable style={styles.closeBtn} onPress={() => setSelected(null)}><Text style={styles.closeText}>Close</Text></Pressable></View>{selected ? <Image source={{ uri: fullPhotoUrl(session.portalUrl, selected) }} style={styles.fullImage} resizeMode="contain" /> : null}<Text style={styles.viewerMeta}>{clean(selected?.note || selected?.caption)}</Text></View></View>
+      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={closeSelected}>
+        <View style={styles.modalBg}><View style={styles.viewer}><View style={styles.viewerHeader}><Text style={styles.viewerTitle} numberOfLines={1}>{selected ? photoTitle(selected) : ''}</Text><Pressable style={styles.closeBtn} onPress={closeSelected}><Text style={styles.closeText}>Close</Text></Pressable></View>{selected ? <Image source={{ uri: fullPhotoUrl(session.portalUrl, selected) }} style={styles.fullImage} resizeMode="contain" /> : null}<Text style={styles.viewerMeta}>{clean(selected?.note || selected?.caption)}</Text></View></View>
       </Modal>
     </ScreenShell>
   );

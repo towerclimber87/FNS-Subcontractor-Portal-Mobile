@@ -98,6 +98,36 @@ function safeJson(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+function parseAnnotationPoints(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_err) { return []; }
+  }
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === 'object' && Array.isArray(parsed.points)) return parsed.points;
+  return [];
+}
+
+function normalize360Annotation(row) {
+  const points = parseAnnotationPoints(row?.points || row?.geometry_json || row?.geometry);
+  return {
+    ...row,
+    kind: clean(row?.kind || row?.type || 'polyline'),
+    color: clean(row?.color) || '#ef4444',
+    stroke_width: Number(row?.stroke_width || row?.strokeWidth || 3) || 3,
+    is_closed: Boolean(row?.is_closed || row?.closed),
+    points: points
+      .map((point) => {
+        if (Array.isArray(point)) return { yaw: Number(point[0] || 0), pitch: Number(point[1] || 0) };
+        if (point && typeof point === 'object') return { yaw: Number(point.yaw ?? point.x ?? 0), pitch: Number(point.pitch ?? point.y ?? 0) };
+        return null;
+      })
+      .filter(Boolean),
+  };
+}
+
 function buildPanoHtml({ imageUrl, annotations = [] }) {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>
     html,body{margin:0;height:100%;overflow:hidden;background:#020617;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none;}
@@ -129,8 +159,12 @@ function buildPanoHtml({ imageUrl, annotations = [] }) {
   function load(){if(!imageUrl){show('No 360 photo URL was returned.');return;}var img=new Image();img.crossOrigin='anonymous';img.onload=function(){texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);show('');render();};img.onerror=function(){show('Unable to load this 360 photo.');};img.src=imageUrl;}
   function rad(v){return v*Math.PI/180;}
   function yawPitchToScreen(pt){var py=rad(Number(pt.yaw||0)), pp=rad(Number(pt.pitch||0));var x=Math.cos(pp)*Math.sin(py), y=Math.sin(pp), z=Math.cos(pp)*Math.cos(py);var yr=rad(-yaw), cy=Math.cos(yr), sy=Math.sin(yr);var x1=cy*x+sy*z, z1=-sy*x+cy*z;var pr=rad(pitch), cp=Math.cos(pr), sp=Math.sin(pr);var y2=cp*y-sp*z1, z2=sp*y+cp*z1;if(z2<=0.05)return null;var scale=(innerWidth/(2*Math.tan(rad(fov)*.5)));return {x:innerWidth*.5+(x1/z2)*scale,y:innerHeight*.5-(y2/z2)*scale};}
-  function annPoints(a){var g=a.geometry_json||a.geometry||{};if(typeof g==='string'){try{g=JSON.parse(g)}catch(e){g={}}}return Array.isArray(a.points)?a.points:(Array.isArray(g.points)?g.points:[]);}
-  function renderAnnotations(){while(svg.firstChild)svg.removeChild(svg.firstChild);annotations.forEach(function(a){var pts=annPoints(a).map(yawPitchToScreen).filter(Boolean);if(pts.length<2)return;var path=document.createElementNS('http://www.w3.org/2000/svg','polyline');path.setAttribute('points',pts.map(function(p){return p.x+','+p.y}).join(' '));path.setAttribute('fill','none');path.setAttribute('stroke',a.color||'#ef4444');path.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');svg.appendChild(path);});}
+  function annPoints(a){var pts=Array.isArray(a.points)?a.points:[];return pts.map(function(p){return {yaw:Number(p&&p.yaw||0),pitch:Number(p&&p.pitch||0)}});}
+  function addLine(a,pts,closed){if(pts.length<2)return;var path=document.createElementNS('http://www.w3.org/2000/svg','polyline');path.setAttribute('points',pts.map(function(p){return p.x+','+p.y}).join(' '));path.setAttribute('fill','none');path.setAttribute('stroke',a.color||'#ef4444');path.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');if(closed)path.setAttribute('points',pts.concat([pts[0]]).map(function(p){return p.x+','+p.y}).join(' '));svg.appendChild(path);}
+  function addRect(a,pts){if(pts.length<2){addLine(a,pts,false);return;}var x=Math.min(pts[0].x,pts[1].x),y=Math.min(pts[0].y,pts[1].y),w=Math.abs(pts[1].x-pts[0].x),h=Math.abs(pts[1].y-pts[0].y);var r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('fill','none');r.setAttribute('stroke',a.color||'#ef4444');r.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));svg.appendChild(r);}
+  function addCircle(a,pts){if(pts.length<2){addLine(a,pts,false);return;}var x=Math.min(pts[0].x,pts[1].x),y=Math.min(pts[0].y,pts[1].y),w=Math.abs(pts[1].x-pts[0].x),h=Math.abs(pts[1].y-pts[0].y);var e=document.createElementNS('http://www.w3.org/2000/svg','ellipse');e.setAttribute('cx',x+w/2);e.setAttribute('cy',y+h/2);e.setAttribute('rx',Math.max(1,w/2));e.setAttribute('ry',Math.max(1,h/2));e.setAttribute('fill','none');e.setAttribute('stroke',a.color||'#ef4444');e.setAttribute('stroke-width',Math.max(2,Number(a.stroke_width||3)));svg.appendChild(e);}
+  function addLabel(a,pts){var text=String(a.label||'').trim();if(!text||!pts.length)return;var t=document.createElementNS('http://www.w3.org/2000/svg','text');t.textContent=text;t.setAttribute('x',pts[0].x+6);t.setAttribute('y',pts[0].y-6);t.setAttribute('fill',a.color||'#ef4444');t.setAttribute('stroke','rgba(0,0,0,.5)');t.setAttribute('stroke-width','3');t.setAttribute('paint-order','stroke');t.setAttribute('font-size','15');t.setAttribute('font-weight','800');svg.appendChild(t);}
+  function renderAnnotations(){while(svg.firstChild)svg.removeChild(svg.firstChild);annotations.forEach(function(a){var pts=annPoints(a).map(yawPitchToScreen).filter(Boolean);if(pts.length<1)return;var kind=String(a.kind||a.type||'').toLowerCase();if(kind==='rectangle'||kind==='rect')addRect(a,pts);else if(kind==='circle'||kind==='ellipse')addCircle(a,pts);else addLine(a,pts,Boolean(a.is_closed));addLabel(a,pts);});}
   function dist(t){if(!t||t.length<2)return 0;var dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
   window.addEventListener('resize',resize);
   canvas.addEventListener('pointerdown',function(e){canvas.setPointerCapture&&canvas.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY,yaw:yaw,pitch:pitch};e.preventDefault();},{passive:false});
@@ -249,7 +283,8 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
       setAnnotationLoading(true);
       try{
         const payload=await loadSubcontractorSiteWalk360Annotations(session.portalUrl,session.access_token,selected.id);
-        if(!cancelled) setAnnotations(Array.isArray(payload?.annotations)?payload.annotations:[]);
+        const raw = Array.isArray(payload?.annotations) ? payload.annotations : (Array.isArray(payload?.items) ? payload.items : []);
+        if(!cancelled) setAnnotations(raw.map(normalize360Annotation));
       }catch(_err){ if(!cancelled) setAnnotations([]); }
       finally{ if(!cancelled) setAnnotationLoading(false); }
     }
