@@ -147,6 +147,7 @@ export default function App() {
   }
 
 
+
   if (route.name === 'siteDailyTracker') {
     return (
       <SiteDailyTrackerScreen

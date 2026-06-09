@@ -200,6 +200,15 @@ export async function uploadSubcontractorMaterialTrackerPhotos(portalUrl, access
   return parseJsonResponse(response);
 }
 
+export function buildSiteDocumentDownloadPath({ siteName, section, bucket, filename }) {
+  const params = new URLSearchParams();
+  params.set('site_name', siteName || '');
+  params.set('section', section || '');
+  params.set('bucket', bucket || '');
+  params.set('filename', filename || '');
+  return `/subcontractor/site_documents/api/download?${params.toString()}`;
+}
+
 
 export async function loadSubcontractorSiteDailyTracker(portalUrl, accessToken, siteName) {
   const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
@@ -220,15 +229,16 @@ export async function updateSubcontractorSiteDailyTrackerRecord(portalUrl, acces
 }
 
 export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset }) {
-  if (!asset?.uri) throw new Error('No photo was selected.');
-  const filename = asset.fileName || asset.filename || `site-tracker-photo-${Date.now()}.jpg`;
-  const mime = asset.mimeType || asset.type || 'image/jpeg';
   const form = new FormData();
-  form.append('site_id', String(siteId || '0'));
+  form.append('site_id', String(siteId || ''));
   form.append('record_uid', String(recordUid || ''));
   form.append('category', 'subcontractor');
-  form.append('caption', caption || '');
-  form.append('files', { uri: asset.uri, name: filename, type: mime });
+  if (caption) form.append('caption', caption);
+  form.append('files', {
+    uri: asset.uri,
+    name: asset.fileName || `site-tracker-${Date.now()}.jpg`,
+    type: asset.mimeType || 'image/jpeg',
+  });
 
   const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH}/photo-upload`), {
     method: 'POST',
@@ -236,13 +246,4 @@ export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, access
     body: form,
   });
   return parseJsonResponse(response);
-}
-
-export function buildSiteDocumentDownloadPath({ siteName, section, bucket, filename }) {
-  const params = new URLSearchParams();
-  params.set('site_name', siteName || '');
-  params.set('section', section || '');
-  params.set('bucket', bucket || '');
-  params.set('filename', filename || '');
-  return `/subcontractor/site_documents/api/download?${params.toString()}`;
 }
