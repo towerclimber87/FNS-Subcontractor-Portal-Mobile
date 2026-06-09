@@ -114,12 +114,9 @@ export function sitePagePath(page, site) {
   const siteId = site?.site_id || site?.id || '';
   const subName = site?.subcontractor_name || '';
   const siteQ = encodeURIComponent(siteName);
-  const siteIdQ = encodeURIComponent(siteId);
+  const siteIdQ = encodeURIComponent(String(siteId || ''));
   const subQ = encodeURIComponent(subName);
-  const withSite = (base) => `${base}${base.includes('?') ? '&' : '?'}site_name=${siteQ}${subName ? `&subcontractor_name=${subQ}` : ''}`;
-  const withSiteId = (base) => siteIdQ
-    ? `${base}${base.includes('?') ? '&' : '?'}site_id=${siteIdQ}`
-    : withSite(base);
+  const withSite = (base) => `${base}${base.includes('?') ? '&' : '?'}site_name=${siteQ}${siteId ? `&site_id=${siteIdQ}` : ''}${subName ? `&subcontractor_name=${subQ}` : ''}`;
 
   switch (page?.key) {
     case 'site_daily_tracker':
@@ -135,9 +132,9 @@ export function sitePagePath(page, site) {
     case 'site_walk_redlines':
       return withSite('/site_walk_redlines_subcontractor');
     case 'site_walk_photos':
-      return withSiteId('/site_walk_photos_subcontractor');
+      return withSite('/site_walk_photos_subcontractor');
     case 'site_walk_360':
-      return withSiteId('/site_walk_360_subcontractor');
+      return withSite('/site_walk_360_subcontractor');
     case 'sow_documents':
       return withSite('/subcontractor/site_scope_of_work');
     case 'accounting_contacts':
@@ -302,8 +299,17 @@ export async function loadSubcontractorSiteWalk360Annotations(portalUrl, accessT
 export function subcontractorMediaUrl(portalUrl, path) {
   const raw = String(path || '').trim();
   if (!raw) return '';
-  if (/^https?:\/\//i.test(raw) || raw.startsWith('file:') || raw.startsWith('data:')) return raw;
-  return `${normalizePortalUrl(portalUrl)}${raw.startsWith('/') ? raw : `/${raw}`}`;
+  const url = /^https?:\/\//i.test(raw) || raw.startsWith('file:') || raw.startsWith('data:')
+    ? raw
+    : `${normalizePortalUrl(portalUrl)}${raw.startsWith('/') ? raw : `/${raw}`}`;
+  if (url.startsWith('file:') || url.startsWith('data:')) return url;
+  try {
+    const [base, query = ''] = url.split('?');
+    const normalizedBase = encodeURI(decodeURI(base));
+    return query ? `${normalizedBase}?${query}` : normalizedBase;
+  } catch (_error) {
+    return url.replace(/ /g, '%20');
+  }
 }
 
 // -----------------------------------------------------------------------------

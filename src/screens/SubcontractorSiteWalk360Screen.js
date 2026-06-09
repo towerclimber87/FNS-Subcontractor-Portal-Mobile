@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as FileSystem from 'expo-file-system';
 import ScreenShell, { colors } from '../components/ScreenShell';
 import { loadSubcontractorSiteWalk360, loadSubcontractorSiteWalk360Annotations, subcontractorMediaUrl } from '../api/subcontractorApi';
 
@@ -36,6 +37,21 @@ function safeJson(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+
+function mimeTypeFromUrl(value) {
+  const lower = clean(value).split('?')[0].toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+function fileExtFromUrl(value) {
+  const lower = clean(value).split('?')[0].toLowerCase();
+  if (lower.endsWith('.png')) return 'png';
+  if (lower.endsWith('.webp')) return 'webp';
+  return 'jpg';
+}
+
 function buildPanoHtml({ imageUrl, annotations = [] }) {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>
     html,body{margin:0;height:100%;overflow:hidden;background:#020617;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none;}
@@ -64,7 +80,7 @@ function buildPanoHtml({ imageUrl, annotations = [] }) {
   }
   function resize(){var dpr=window.devicePixelRatio||1;canvas.width=Math.max(1,Math.floor(innerWidth*dpr));canvas.height=Math.max(1,Math.floor(innerHeight*dpr));canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';svg.setAttribute('width',innerWidth);svg.setAttribute('height',innerHeight);render();}
   function render(){if(!gl||!program||!texture)return;gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(program);var loc=gl.getAttribLocation(program,'p');gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(gl.getUniformLocation(program,'tex'),0);gl.uniform2f(gl.getUniformLocation(program,'res'),canvas.width,canvas.height);gl.uniform1f(gl.getUniformLocation(program,'yaw'),yaw);gl.uniform1f(gl.getUniformLocation(program,'pitch'),pitch);gl.uniform1f(gl.getUniformLocation(program,'fov'),fov);gl.drawArrays(gl.TRIANGLES,0,6);renderAnnotations();}
-  function load(){if(!imageUrl){show('No 360 photo URL was returned.');return;}var img=new Image();img.crossOrigin='anonymous';img.onload=function(){texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);show('');render();};img.onerror=function(){show('Unable to load this 360 photo.');};img.src=imageUrl;}
+  function load(){if(!imageUrl){show('No 360 photo URL was returned.');return;}var img=new Image();img.crossOrigin='anonymous';img.onload=function(){texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);try{gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);}catch(texErr){show('Unable to open this 360 photo in the viewer.');return;}gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);show('');render();};img.onerror=function(){show('Unable to load this 360 photo.');};img.src=imageUrl;}
   function rad(v){return v*Math.PI/180;}
   function yawPitchToScreen(pt){var py=rad(Number(pt.yaw||0)), pp=rad(Number(pt.pitch||0));var x=Math.cos(pp)*Math.sin(py), y=Math.sin(pp), z=Math.cos(pp)*Math.cos(py);var yr=rad(-yaw), cy=Math.cos(yr), sy=Math.sin(yr);var x1=cy*x+sy*z, z1=-sy*x+cy*z;var pr=rad(pitch), cp=Math.cos(pr), sp=Math.sin(pr);var y2=cp*y-sp*z1, z2=sp*y+cp*z1;if(z2<=0.05)return null;var scale=(innerWidth/(2*Math.tan(rad(fov)*.5)));return {x:innerWidth*.5+(x1/z2)*scale,y:innerHeight*.5-(y2/z2)*scale};}
   function annPoints(a){var g=a.geometry_json||a.geometry||{};if(typeof g==='string'){try{g=JSON.parse(g)}catch(e){g={}}}return Array.isArray(a.points)?a.points:(Array.isArray(g.points)?g.points:[]);}
@@ -96,6 +112,8 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
   const [selected,setSelected]=useState(null);
   const [annotations,setAnnotations]=useState([]);
   const [annotationLoading,setAnnotationLoading]=useState(false);
+  const [viewerImageUrl,setViewerImageUrl]=useState('');
+  const [viewerImageLoading,setViewerImageLoading]=useState(false);
   const selectedSite=siteName(project);
   const initial360Id=pin360Id(initialRedline360Pin);
   const initialSitewalk=clean(initialRedline360Pin?.sitewalk_desc || initialRedline360Pin?.site_walk_desc);
@@ -140,8 +158,38 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
     return()=>{cancelled=true};
   },[selected?.id,session?.portalUrl,session?.access_token]);
 
-  const viewerHtml=useMemo(()=>buildPanoHtml({ imageUrl: full(session.portalUrl, selected), annotations }),[session.portalUrl,selected,annotations]);
+  const selectedFullUrl = useMemo(() => full(session.portalUrl, selected), [session.portalUrl, selected]);
 
-  return <ScreenShell title="SiteWalk 360 Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome} backgroundSource={require('../../assets/subcontractor-home-background.png')}><View style={styles.wrap}><View style={styles.toolbarCard}><TextInput value={query} onChangeText={setQuery} placeholder="Search 360 photos" placeholderTextColor="#71839b" style={styles.search} returnKeyType="search" onSubmitEditing={()=>load({silent:true})}/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{sitewalks.map((walk,idx)=>{const value=clean(walk?.value||walk?.sitewalk_desc||walk)||`SiteWalk ${idx+1}`;return <Pressable key={`${value}-${idx}`} onPress={()=>setSelectedSitewalk(value)} style={[styles.chip,selectedSitewalk===value&&styles.chipActive]}><Text style={[styles.chipText,selectedSitewalk===value&&styles.chipTextActive]}>{value}</Text></Pressable>})}</ScrollView><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{TAGS.map(v=><Pressable key={v} onPress={()=>setTag(v)} style={[styles.tag,tag===v&&styles.tagActive]}><Text style={[styles.tagText,tag===v&&styles.tagTextActive]}>{v}</Text></Pressable>)}</ScrollView></View>{loading?<View style={styles.center}><ActivityIndicator color={colors.blue}/><Text style={styles.muted}>Loading 360 photos…</Text></View>:<FlatList data={data} key={columns} numColumns={columns} keyExtractor={(item,index)=>String(item?.id||index)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>} contentContainerStyle={styles.list} renderItem={({item})=><Pressable style={[styles.cardWrap,{width:`${100/columns}%`}]} onPress={()=>setSelected(item)}><View style={styles.photoCard}>{media(session.portalUrl,item)?<Image source={{uri:media(session.portalUrl,item)}} style={styles.thumb}/>:<View style={[styles.thumb,styles.noImage]}><Text style={styles.noImageText}>360</Text></View>}<View style={styles.cardBody}><Text style={styles.photoTitle} numberOfLines={2}>{clean(item?.name||item?.caption||item?.file_name)||'360 Photo'}</Text><Text style={styles.meta} numberOfLines={1}>{clean(item?.tag)||'Untagged'}{clean(item?.sitewalk_desc)?` · ${clean(item.sitewalk_desc)}`:''}</Text></View></View></Pressable>} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No 360 photos found</Text><Text style={styles.muted}>This shows only allowed SiteWalk 360 photos for this subcontractor project.</Text></View>}/>}</View><Modal visible={!!selected} animationType="slide" onRequestClose={()=>setSelected(null)}><ScreenShell title="360 Viewer" subtitle={clean(selected?.name||selected?.caption||selected?.file_name)} onBack={()=>setSelected(null)} onHome={onHome}><View style={styles.nativeViewer}>{annotationLoading?<View style={styles.annotationLoading}><ActivityIndicator color="#fff"/><Text style={styles.annotationLoadingText}>Loading annotations…</Text></View>:null}<WebView ref={webRef} originWhitelist={['*']} source={{html:viewerHtml}} javaScriptEnabled domStorageEnabled allowFileAccess allowUniversalAccessFromFileURLs mixedContentMode="always" style={styles.webview}/></View></ScreenShell></Modal></ScreenShell>
+  useEffect(() => {
+    let cancelled = false;
+    async function prepareViewerImage() {
+      setViewerImageUrl('');
+      if (!selectedFullUrl) return;
+      if (/^data:|^file:/i.test(selectedFullUrl)) {
+        setViewerImageUrl(selectedFullUrl);
+        return;
+      }
+      setViewerImageLoading(true);
+      try {
+        const ext = fileExtFromUrl(selectedFullUrl);
+        const localPath = `${FileSystem.cacheDirectory || ''}subcontractor-360-${clean(selected?.id) || Date.now()}.${ext}`;
+        const download = await FileSystem.downloadAsync(selectedFullUrl, localPath, {
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        });
+        const base64 = await FileSystem.readAsStringAsync(download.uri, { encoding: FileSystem.EncodingType.Base64 });
+        if (!cancelled) setViewerImageUrl(`data:${mimeTypeFromUrl(selectedFullUrl)};base64,${base64}`);
+      } catch (_error) {
+        if (!cancelled) setViewerImageUrl(selectedFullUrl);
+      } finally {
+        if (!cancelled) setViewerImageLoading(false);
+      }
+    }
+    prepareViewerImage();
+    return () => { cancelled = true; };
+  }, [selectedFullUrl, selected?.id, session?.access_token]);
+
+  const viewerHtml=useMemo(()=>buildPanoHtml({ imageUrl: viewerImageUrl, annotations }),[viewerImageUrl,annotations]);
+
+  return <ScreenShell title="SiteWalk 360 Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome} backgroundSource={require('../../assets/subcontractor-home-background.png')}><View style={styles.wrap}><View style={styles.toolbarCard}><TextInput value={query} onChangeText={setQuery} placeholder="Search 360 photos" placeholderTextColor="#71839b" style={styles.search} returnKeyType="search" onSubmitEditing={()=>load({silent:true})}/><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{sitewalks.map((walk,idx)=>{const value=clean(walk?.value||walk?.sitewalk_desc||walk)||`SiteWalk ${idx+1}`;return <Pressable key={`${value}-${idx}`} onPress={()=>setSelectedSitewalk(value)} style={[styles.chip,selectedSitewalk===value&&styles.chipActive]}><Text style={[styles.chipText,selectedSitewalk===value&&styles.chipTextActive]}>{value}</Text></Pressable>})}</ScrollView><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{TAGS.map(v=><Pressable key={v} onPress={()=>setTag(v)} style={[styles.tag,tag===v&&styles.tagActive]}><Text style={[styles.tagText,tag===v&&styles.tagTextActive]}>{v}</Text></Pressable>)}</ScrollView></View>{loading?<View style={styles.center}><ActivityIndicator color={colors.blue}/><Text style={styles.muted}>Loading 360 photos…</Text></View>:<FlatList data={data} key={columns} numColumns={columns} keyExtractor={(item,index)=>String(item?.id||index)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh}/>} contentContainerStyle={styles.list} renderItem={({item})=><Pressable style={[styles.cardWrap,{width:`${100/columns}%`}]} onPress={()=>setSelected(item)}><View style={styles.photoCard}>{media(session.portalUrl,item)?<Image source={{uri:media(session.portalUrl,item)}} style={styles.thumb}/>:<View style={[styles.thumb,styles.noImage]}><Text style={styles.noImageText}>360</Text></View>}<View style={styles.cardBody}><Text style={styles.photoTitle} numberOfLines={2}>{clean(item?.name||item?.caption||item?.file_name)||'360 Photo'}</Text><Text style={styles.meta} numberOfLines={1}>{clean(item?.tag)||'Untagged'}{clean(item?.sitewalk_desc)?` · ${clean(item.sitewalk_desc)}`:''}</Text></View></View></Pressable>} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No 360 photos found</Text><Text style={styles.muted}>This shows only allowed SiteWalk 360 photos for this subcontractor project.</Text></View>}/>}</View><Modal visible={!!selected} animationType="slide" onRequestClose={()=>setSelected(null)}><ScreenShell title="360 Viewer" subtitle={clean(selected?.name||selected?.caption||selected?.file_name)} onBack={()=>{ if (initialRedline360Pin) onBack?.(); else setSelected(null); }} onHome={onHome}><View style={styles.nativeViewer}>{annotationLoading || viewerImageLoading ? <View style={styles.annotationLoading}><ActivityIndicator color="#fff"/><Text style={styles.annotationLoadingText}>{viewerImageLoading ? 'Preparing 360 photo…' : 'Loading annotations…'}</Text></View> : null}<WebView ref={webRef} originWhitelist={['*']} source={{html:viewerHtml}} javaScriptEnabled domStorageEnabled allowFileAccess allowUniversalAccessFromFileURLs mixedContentMode="always" style={styles.webview}/></View></ScreenShell></Modal></ScreenShell>
 }
 const styles=StyleSheet.create({wrap:{flex:1},toolbarCard:{margin:12,padding:12,borderRadius:22,backgroundColor:'rgba(255,255,255,.92)',borderWidth:1,borderColor:colors.line,gap:10},search:{backgroundColor:'#fff',borderWidth:1,borderColor:colors.line,borderRadius:16,paddingHorizontal:14,paddingVertical:11,color:colors.text,fontWeight:'800'},chips:{gap:8,paddingRight:8},chip:{paddingHorizontal:12,paddingVertical:9,borderRadius:999,backgroundColor:'#eef6ff',borderWidth:1,borderColor:'#c8def6'},chipActive:{backgroundColor:'#10233f',borderColor:'#10233f'},chipText:{fontWeight:'900',color:'#31506d'},chipTextActive:{color:'#fff'},tag:{paddingHorizontal:11,paddingVertical:8,borderRadius:999,backgroundColor:'#fff',borderWidth:1,borderColor:colors.line},tagActive:{backgroundColor:colors.blue,borderColor:colors.blue},tagText:{fontWeight:'900',color:colors.muted},tagTextActive:{color:'#fff'},center:{flex:1,alignItems:'center',justifyContent:'center',gap:10},muted:{color:colors.muted,fontWeight:'800',textAlign:'center'},list:{padding:8,paddingBottom:30},cardWrap:{padding:6},photoCard:{backgroundColor:'rgba(255,255,255,.94)',borderRadius:18,borderWidth:1,borderColor:'rgba(190,214,239,.9)',overflow:'hidden',shadowColor:'#0f172a',shadowOpacity:.06,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:2},thumb:{width:'100%',aspectRatio:1.72,backgroundColor:'#dbe7f2'},noImage:{alignItems:'center',justifyContent:'center'},noImageText:{color:colors.blue,fontWeight:'900',fontSize:30},cardBody:{padding:12},photoTitle:{color:colors.text,fontWeight:'900',fontSize:15,lineHeight:20},meta:{marginTop:5,color:colors.muted,fontWeight:'800',fontSize:12},empty:{padding:26,alignItems:'center',backgroundColor:'rgba(255,255,255,.88)',borderRadius:18,margin:12},emptyTitle:{fontSize:18,fontWeight:'900',color:colors.text,marginBottom:6},nativeViewer:{flex:1,backgroundColor:'#020617'},webview:{flex:1,backgroundColor:'#020617'},annotationLoading:{position:'absolute',zIndex:4,top:12,left:12,right:12,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8,padding:9,borderRadius:14,backgroundColor:'rgba(2,6,23,.72)'},annotationLoadingText:{color:'#fff',fontWeight:'900',fontSize:12}})

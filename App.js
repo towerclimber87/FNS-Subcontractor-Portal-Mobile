@@ -85,6 +85,21 @@ export default function App() {
     setRoute({ name: 'home' });
   }
 
+  function backToPdfOrProject(currentRoute) {
+    if (currentRoute?.redlineViewportState || currentRoute?.redlineReturnSnapshot) {
+      setRoute({
+        name: 'pdfEditor',
+        project: currentRoute.project,
+        page: { key: 'site_walk_redlines', label: 'PDF Editor' },
+        pages: currentRoute.pages,
+        initialViewportState: currentRoute.redlineViewportState || null,
+        initialReturnSnapshot: currentRoute.redlineReturnSnapshot || null,
+      });
+      return;
+    }
+    setRoute({ name: 'project', project: currentRoute.project, pages: currentRoute.pages });
+  }
+
   if (booting) {
     return (
       <View style={styles.boot}>
@@ -174,6 +189,8 @@ export default function App() {
         page={route.page}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
+        initialViewportState={route.initialViewportState}
+        initialReturnSnapshot={route.initialReturnSnapshot}
         onOpenPhotoPin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalkPhotos', project: route.project, page: { key: 'site_walk_photos', label: 'SiteWalk Photos' }, pages: route.pages, initialRedlinePhotoPin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
         onOpen360Pin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalk360', project: route.project, page: { key: 'site_walk_360', label: 'SiteWalk 360 Photos' }, pages: route.pages, initialRedline360Pin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
       />
@@ -187,7 +204,7 @@ export default function App() {
         project={route.project}
         page={route.page}
         initialRedlinePhotoPin={route.initialRedlinePhotoPin}
-        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onBack={() => backToPdfOrProject(route)}
         onHome={goHome}
       />
     );
@@ -200,7 +217,7 @@ export default function App() {
         project={route.project}
         page={route.page}
         initialRedline360Pin={route.initialRedline360Pin}
-        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onBack={() => backToPdfOrProject(route)}
         onHome={goHome}
       />
     );

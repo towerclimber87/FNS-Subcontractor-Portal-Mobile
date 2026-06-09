@@ -8416,7 +8416,7 @@ const styles = StyleSheet.create({
 });
 
 
-export default function SubcontractorPdfEditorScreen({ session, project, page, onBack, onHome, onOpenPhotoPin, onOpen360Pin }) {
+export default function SubcontractorPdfEditorScreen({ session, project, page, onBack, onHome, onOpenPhotoPin, onOpen360Pin, initialViewportState = null, initialReturnSnapshot = null }) {
   const normalizedSession = {
     ...(session || {}),
     accessToken: session?.accessToken || session?.access_token || session?.token || '',
@@ -8432,6 +8432,8 @@ export default function SubcontractorPdfEditorScreen({ session, project, page, o
       onHome={onHome}
       onOpenPhotoPin={onOpenPhotoPin}
       onOpen360Pin={onOpen360Pin}
+      initialViewportState={initialViewportState}
+      initialReturnSnapshot={initialReturnSnapshot}
       allowSiteSelection={false}
     />
   );
