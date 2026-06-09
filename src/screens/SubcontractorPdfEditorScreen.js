@@ -7632,11 +7632,9 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
                 <Pressable style={styles.pinOptionsMarkupBtn} onPress={() => viewPhotoPin(pin)}><Text style={styles.pinOptionsMarkupText}>{t("View / Markup Photo")}</Text></Pressable>
               ) : (
                 <View style={styles.pinOptionsReadOnlyCard}>
-                  <Text style={styles.pinOptionsReadOnlyTitle}>{t("No regular photo linked")}</Text>
-                  <Text style={styles.pinOptionsReadOnlyText}>{t("Subcontractors can view linked photos, but cannot replace or add photos to existing pins.")}</Text>
+                  <Text style={styles.pinOptionsReadOnlyTitle}>{t("No photo linked")}</Text>
                 </View>
               )}
-              <Pressable style={styles.pinOptionsSoftBtn} onPress={() => { setPhotoOptionsPin(null); setPinEditor(pin); }}><Text style={styles.pinOptionsBtnText}>{t("Rename")}</Text></Pressable>
             </View>
             <View style={styles.pinOptions360Row}>
               <View style={styles.pinOptions360Info}>
@@ -8293,8 +8291,8 @@ const styles = StyleSheet.create({
   pinOptionsDangerBtn: { flexGrow: 1, flexBasis: '45%', minHeight: 42, borderRadius: 11, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 },
   pinOptionsCancelBtn: { flexGrow: 1, flexBasis: '45%', minHeight: 42, borderRadius: 11, backgroundColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 },
   pinOptionsBtnText: { color: '#111827', fontSize: 12, fontWeight: '900', textAlign: 'center' },
-  pinOptionsReadOnlyCard: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#dbe4ef', borderRadius: 12, padding: 10, gap: 3 },
-  pinOptionsReadOnlyTitle: { color: '#0f172a', fontSize: 12, fontWeight: '900' },
+  pinOptionsReadOnlyCard: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#dbe4ef', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  pinOptionsReadOnlyTitle: { color: '#0f172a', fontSize: 13, fontWeight: '900' },
   pinOptionsReadOnlyText: { color: '#64748b', fontSize: 11, fontWeight: '800', lineHeight: 15 },
   pinOptionsPrimaryText: { color: '#ffffff', fontSize: 12, fontWeight: '900', textAlign: 'center' },
   pinOptionsDangerText: { color: '#ffffff', fontSize: 12, fontWeight: '900', textAlign: 'center' },
