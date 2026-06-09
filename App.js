@@ -7,6 +7,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import ProjectScreen from './src/screens/ProjectScreen';
 import WebPortalScreen from './src/screens/WebPortalScreen';
 import SowDocumentsScreen from './src/screens/SowDocumentsScreen';
+import MaterialTrackerScreen from './src/screens/MaterialTrackerScreen';
 import { clearSession, loadPortalUrl, loadSession, savePortalUrl } from './src/utils/storage';
 import { logoutSubcontractor } from './src/api/subcontractorApi';
 import { colors } from './src/components/ScreenShell';
@@ -114,7 +115,7 @@ export default function App() {
         pages={route.pages}
         onBack={goHome}
         onHome={goHome}
-        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : 'web', page, project, pages: route.pages })}
+        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : page?.key === 'material_tracker' ? 'materialTracker' : 'web', page, project, pages: route.pages })}
       />
     );
   }
@@ -123,6 +124,18 @@ export default function App() {
   if (route.name === 'sowDocuments') {
     return (
       <SowDocumentsScreen
+        session={session}
+        project={route.project}
+        page={route.page}
+        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onHome={goHome}
+      />
+    );
+  }
+
+  if (route.name === 'materialTracker') {
+    return (
+      <MaterialTrackerScreen
         session={session}
         project={route.project}
         page={route.page}

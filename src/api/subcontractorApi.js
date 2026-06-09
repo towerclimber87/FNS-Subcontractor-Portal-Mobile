@@ -8,6 +8,7 @@ const SESSION_WEBVIEW_PATH = '/mobile/subcontractor/api/session';
 
 const SITE_DOCUMENTS_PATH = '/mobile/subcontractor/api/site-documents/files';
 const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/delete';
+const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-tracker';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -157,6 +158,24 @@ export async function deleteSubcontractorSiteDocument(portalUrl, accessToken, { 
   const response = await fetch(buildApiUrl(portalUrl, `${SITE_DOCUMENT_DELETE_PATH}?${params.toString()}`), {
     method: 'DELETE',
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function loadSubcontractorMaterialTracker(portalUrl, accessToken, siteName) {
+  const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_MATERIAL_TRACKER_PATH}${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function updateSubcontractorMaterialTrackerItem(portalUrl, accessToken, itemId, payload) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_MATERIAL_TRACKER_PATH}/items/${encodeURIComponent(itemId)}`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(payload || {}),
   });
   return parseJsonResponse(response);
 }
