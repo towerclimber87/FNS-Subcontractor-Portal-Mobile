@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshCon
 import * as FileSystem from 'expo-file-system/legacy';
 import { WebView } from 'react-native-webview';
 import ScreenShell, { colors } from '../components/ScreenShell';
-import { loadSubcontractorSiteWalk360, loadSubcontractorSiteWalk360Annotations, subcontractorMediaUrl } from '../api/subcontractorApi';
+import { loadSubcontractorRedlinePin360, loadSubcontractorSiteWalk360, loadSubcontractorSiteWalk360Annotations, subcontractorMediaUrl } from '../api/subcontractorApi';
 
 const TAGS = ['All', 'Antenna', 'Node', 'Cores', 'Miscellaneous', 'IDF / ER', 'Electrical'];
 const clean = (v) => String(v ?? '').trim();
@@ -31,6 +31,13 @@ async function preparePanoImageForWebView({ portalUrl, token, item }) {
   const download = await FileSystem.downloadAsync(encodedUrl, target, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+  if (download?.status && Number(download.status) >= 400) {
+    throw new Error(`The portal returned ${download.status} while downloading the 360 photo.`);
+  }
+  const info = await FileSystem.getInfoAsync(download.uri).catch(() => null);
+  if (!info?.exists || Number(info?.size || 0) < 128) {
+    throw new Error('The 360 photo download was empty.');
+  }
   const base64 = await FileSystem.readAsStringAsync(download.uri, { encoding: FileSystem.EncodingType.Base64 });
   return `data:${mimeFromUrl(sourceUrl)};base64,${base64}`;
 }
@@ -162,13 +169,36 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
     if(!silent)setLoading(true);
     try{
       const requestedSitewalk = selectedSitewalk || initialSitewalk || '';
+      const fallback=fallback360FromPin(initialRedline360Pin);
+      const redlinePinId=clean(initialRedline360Pin?.id || initialRedline360Pin?.redline_pin_id);
+
+      if(redlinePinId){
+        // Opening from the PDF editor needs the pin-specific endpoint.  The normal
+        // 360 list can still be correct, but it can miss older rows where the
+        // SiteWalk 360 record is linked by the same matching rules that draw the
+        // blue 360 ring instead of by redline_pin_id/sitewalk_desc directly.
+        const pinData=await loadSubcontractorRedlinePin360(session.portalUrl,session.access_token,redlinePinId,{photoId:initial360Id});
+        const pinPhotos=Array.isArray(pinData?.photos)?pinData.photos:[];
+        const nextItems=pinPhotos.length ? pinPhotos : (pinData?.latest_photo ? [pinData.latest_photo] : (fallback ? [fallback] : []));
+        setItems(nextItems);
+        if(nextItems.length){
+          const preferredId=clean(pinData?.selected_photo_id || initial360Id);
+          const match=nextItems.find((item)=>preferredId && String(item?.id||'')===String(preferredId)) || nextItems[0];
+          setSelected(match);
+        }
+        if(!sitewalks.length && requestedSitewalk){
+          setSitewalks([{value:requestedSitewalk}]);
+          if(!selectedSitewalk) setSelectedSitewalk(requestedSitewalk);
+        }
+        return;
+      }
+
       const data=await loadSubcontractorSiteWalk360(session.portalUrl,session.access_token,{siteName:selectedSite,sitewalk:requestedSitewalk,tag,q:query});
       const walks=Array.isArray(data?.sitewalks)?data.sitewalks:[];
       setSitewalks(walks);
       if(!selectedSitewalk && requestedSitewalk) setSelectedSitewalk(requestedSitewalk);
       else if(!selectedSitewalk&&walks.length)setSelectedSitewalk(clean(walks[0]?.value||walks[0]?.sitewalk_desc||walks[0]));
       const serverItems=Array.isArray(data?.items)?data.items:[];
-      const fallback=fallback360FromPin(initialRedline360Pin);
       const serverMatch=findServer360ForRedlinePin(serverItems, initialRedline360Pin);
       const merged=fallback && !serverMatch && !serverItems.some((item)=>String(item?.id||'')===String(fallback.id)) ? [fallback,...serverItems] : serverItems;
       setItems(merged);
@@ -178,7 +208,7 @@ export default function SubcontractorSiteWalk360Screen({ session, project, initi
       }
     }catch(e){Alert.alert('SiteWalk 360',e?.message||'Unable to load SiteWalk 360 photos.')}
     finally{setLoading(false);setRefreshing(false)}
-  },[session?.portalUrl,session?.access_token,selectedSite,selectedSitewalk,tag,query,initialRedline360Pin,initial360Id,initialSitewalk]);
+  },[session?.portalUrl,session?.access_token,selectedSite,selectedSitewalk,sitewalks.length,tag,query,initialRedline360Pin,initial360Id,initialSitewalk]);
 
   useEffect(()=>{load()},[load]);
   const refresh=()=>{setRefreshing(true);load({silent:true})};

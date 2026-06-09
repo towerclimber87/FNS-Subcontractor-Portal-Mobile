@@ -288,6 +288,17 @@ export async function loadSubcontractorSiteWalk360(portalUrl, accessToken, { sit
   return parseJsonResponse(response);
 }
 
+export async function loadSubcontractorRedlinePin360(portalUrl, accessToken, pinId, { photoId = null } = {}) {
+  const params = new URLSearchParams();
+  if (photoId !== null && photoId !== undefined && photoId !== '') params.set('photo_id', String(photoId));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-redlines/pins/${encodeURIComponent(String(pinId || ''))}/360${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
 export async function loadSubcontractorSiteWalk360Annotations(portalUrl, accessToken, photoId) {
   const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-360/${encodeURIComponent(String(photoId || ''))}/annotations`), {
     method: 'GET',
