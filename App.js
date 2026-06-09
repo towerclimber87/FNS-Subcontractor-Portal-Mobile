@@ -174,6 +174,8 @@ export default function App() {
         page={route.page}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
+        onOpenPhotoPin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalkPhotos', project: route.project, page: { key: 'site_walk_photos', label: 'SiteWalk Photos' }, pages: route.pages, initialRedlinePhotoPin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
+        onOpen360Pin={(pin, viewportState, returnSnapshot) => setRoute({ name: 'siteWalk360', project: route.project, page: { key: 'site_walk_360', label: 'SiteWalk 360 Photos' }, pages: route.pages, initialRedline360Pin: pin, redlineViewportState: viewportState, redlineReturnSnapshot: returnSnapshot })}
       />
     );
   }
@@ -184,6 +186,7 @@ export default function App() {
         session={session}
         project={route.project}
         page={route.page}
+        initialRedlinePhotoPin={route.initialRedlinePhotoPin}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
       />
@@ -196,6 +199,7 @@ export default function App() {
         session={session}
         project={route.project}
         page={route.page}
+        initialRedline360Pin={route.initialRedline360Pin}
         onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
         onHome={goHome}
       />

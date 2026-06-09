@@ -20,19 +20,21 @@ function cleanPage(page) {
   if (page.key === 'sow_documents') return { ...page, label: 'SOW Documents' };
   if (page.key === 'site_walk_redlines') return { ...page, label: 'PDF Editor' };
   if (page.key === 'site_walk_photos') return { ...page, label: 'SiteWalk Photos' };
+  if (page.key === 'site_walk_360') return { ...page, label: 'SiteWalk 360 Photos' };
   return page;
 }
 
 export default function ProjectScreen({ project, pages, onBack, onHome, onOpenPage }) {
   const { width } = useWindowDimensions();
   const columns = width >= 980 ? 3 : width >= 680 ? 2 : 1;
-  const rawPages = Array.isArray(pages) && pages.length ? pages : FALLBACK_PAGES;
+  const usingFallbackPages = !(Array.isArray(pages) && pages.length);
+  const rawPages = usingFallbackPages ? FALLBACK_PAGES : pages;
   const basePages = rawPages.map(cleanPage).filter(Boolean);
   const has360 = basePages.some((page) => page.key === 'site_walk_360');
   const siteWalkInsertIndex = basePages.findIndex((page) => page.key === 'site_walk_photos');
   const canShow360 = basePages.some((page) => page.key === 'site_walk_photos' || page.key === 'site_walk_redlines');
   const visiblePages = [...basePages];
-  if (!has360 && canShow360) {
+  if (usingFallbackPages && !has360 && canShow360) {
     const item = { key: 'site_walk_360', label: 'SiteWalk 360 Photos', icon: '🌐' };
     visiblePages.splice(siteWalkInsertIndex >= 0 ? siteWalkInsertIndex + 1 : visiblePages.length, 0, item);
   }

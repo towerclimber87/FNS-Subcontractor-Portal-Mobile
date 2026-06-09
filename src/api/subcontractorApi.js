@@ -467,3 +467,14 @@ export function saveMobileRedlineSiteWalkPhotoAnnotation(portalUrl, token, photo
     : `${SUBCONTRACTOR_REDLINE_PATH}/site-walk-photos/${encodeURIComponent(String(photoId))}/annotation`;
   return subcontractorMobileFetch(portalUrl, path, { method: 'POST', token, body: payload, timeoutMs: 45000 });
 }
+
+// Backward-compatible aliases for older subcontractor SiteWalk list components.
+export const tokenizedMediaUrl = (portalUrl, path, token) => {
+  const url = subcontractorMediaUrl(portalUrl, path);
+  if (!url || !token || /[?&](token|access_token)=/i.test(url)) return url;
+  if (!/\/mobile\/subcontractor\/api\//i.test(url)) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+};
+
+export const loadSubcontractorSiteWalkRedlines = (portalUrl, accessToken, { siteName } = {}) => loadSubcontractorSiteWalkRedlineSummary(portalUrl, accessToken, siteName);
+export const loadSubcontractorSiteWalk360Photos = (portalUrl, accessToken, args = {}) => loadSubcontractorSiteWalk360(portalUrl, accessToken, args);

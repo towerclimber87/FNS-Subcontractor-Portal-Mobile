@@ -8,9 +8,28 @@ const clean = (v) => String(v ?? '').trim();
 const siteName = (project) => clean(project?.site_name || project?.name || project?.label || project);
 const photoTitle = (p) => clean(p?.name || p?.caption || p?.file_name || `Photo ${p?.id || ''}`) || 'SiteWalk Photo';
 const photoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.thumb_url || p?.url || p?.public_url || p?.image_url);
-const fullPhotoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.url || p?.public_url || p?.thumb_url || p?.image_url);
+const fullPhotoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.url || p?.public_url || p?.photo_url || p?.full_url || p?.thumb_url || p?.image_url);
+const pinPhotoId = (pin) => clean(pin?.matching_photo_id || pin?.photo_id || pin?.site_walk_photo_id || pin?.sitewalk_photo_id || pin?.linked_photo_id);
+const pinPhotoUrl = (pin) => clean(pin?.matching_photo_url || pin?.photo_url || pin?.site_walk_photo_url || pin?.image_url || pin?.url);
+const fallbackPhotoFromPin = (pin) => {
+  const id = pinPhotoId(pin);
+  const url = pinPhotoUrl(pin);
+  if (!id && !url) return null;
+  return {
+    id: id || `pin-photo-${clean(pin?.id) || Date.now()}`,
+    name: clean(pin?.matching_photo_name || pin?.label || pin?.sr_location || pin?.sr_task) || 'SiteWalk Photo',
+    caption: clean(pin?.label || pin?.sr_location || pin?.sr_task),
+    tag: clean(pin?.tag),
+    sitewalk_desc: clean(pin?.sitewalk_desc || pin?.site_walk_desc),
+    public_url: url,
+    url,
+    thumb_url: clean(pin?.matching_photo_thumb_url || pin?.photo_thumb_url || url),
+    note: clean(pin?.note || pin?.text),
+    __from_redline_pin: true,
+  };
+};
 
-export default function SubcontractorSiteWalkPhotosScreen({ session, project, onBack, onHome }) {
+export default function SubcontractorSiteWalkPhotosScreen({ session, project, initialRedlinePhotoPin, onBack, onHome }) {
   const { width } = useWindowDimensions();
   const columns = width >= 980 ? 4 : width >= 680 ? 3 : 2;
   const [loading, setLoading] = useState(true);
@@ -22,6 +41,8 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, on
   const [photos, setPhotos] = useState([]);
   const [selected, setSelected] = useState(null);
   const selectedSite = siteName(project);
+  const initialPhotoId = pinPhotoId(initialRedlinePhotoPin);
+  const initialSitewalk = clean(initialRedlinePhotoPin?.sitewalk_desc || initialRedlinePhotoPin?.site_walk_desc);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!selectedSite) return;
@@ -30,22 +51,30 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, on
       const data = await loadSubcontractorSiteWalkPhotos(session.portalUrl, session.access_token, { siteName: selectedSite, sitewalk: selectedSitewalk, tag, q: query });
       const walks = Array.isArray(data?.sitewalks) ? data.sitewalks : [];
       setSitewalks(walks);
-      if (!selectedSitewalk && walks.length) setSelectedSitewalk(clean(walks[0]?.value || walks[0]?.sitewalk_desc || walks[0]));
-      setPhotos(Array.isArray(data?.items) ? data.items : []);
+      if (!selectedSitewalk && initialSitewalk) setSelectedSitewalk(initialSitewalk);
+      else if (!selectedSitewalk && walks.length) setSelectedSitewalk(clean(walks[0]?.value || walks[0]?.sitewalk_desc || walks[0]));
+      const serverItems = Array.isArray(data?.items) ? data.items : [];
+      const fallback = fallbackPhotoFromPin(initialRedlinePhotoPin);
+      const merged = fallback && !serverItems.some((item) => String(item?.id || '') === String(fallback.id)) ? [fallback, ...serverItems] : serverItems;
+      setPhotos(merged);
+      if (initialPhotoId || fallback) {
+        const match = merged.find((item) => String(item?.id || '') === String(initialPhotoId)) || fallback || null;
+        if (match) setSelected(match);
+      }
     } catch (error) {
       Alert.alert('SiteWalk Photos', error?.message || 'Unable to load SiteWalk photos.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [session?.portalUrl, session?.access_token, selectedSite, selectedSitewalk, tag, query]);
+  }, [session?.portalUrl, session?.access_token, selectedSite, selectedSitewalk, tag, query, initialRedlinePhotoPin, initialPhotoId, initialSitewalk]);
 
   useEffect(() => { load(); }, [load]);
   const refresh = useCallback(() => { setRefreshing(true); load({ silent: true }); }, [load]);
   const data = useMemo(() => photos, [photos]);
 
   return (
-    <ScreenShell title="SiteWalk Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome}>
+    <ScreenShell title="SiteWalk Photos" subtitle={selectedSite} onBack={onBack} onHome={onHome} backgroundSource={require('../../assets/subcontractor-home-background.png')}>
       <View style={styles.wrap}>
         <View style={styles.toolbarCard}>
           <TextInput value={query} onChangeText={setQuery} placeholder="Search photos" placeholderTextColor="#71839b" style={styles.search} returnKeyType="search" onSubmitEditing={() => load({ silent: true })} />
