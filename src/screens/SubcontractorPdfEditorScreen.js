@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
   Alert,
@@ -7945,24 +7946,36 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
 
   if (loading && allowSiteSelection && !selectedSiteId && !selectedSiteName) {
     return (
-      <SafeAreaView style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}>
-        {renderTopControls()}
-        <View style={styles.loading}>
-          {redlineSitesLoading ? <ActivityIndicator size="large" color="#4f46e5" /> : null}
-          <Text style={styles.loadingText}>{redlineSitesLoading ? 'Loading SiteWalk redline sites...' : 'Select a site to open SiteWalk redlines.'}</Text>
-          {!!error && redlineSites.length > 0 ? <Text style={styles.errorText}>{error}</Text> : null}
+      <SafeAreaView style={styles.safeRoot}>
+        <ExpoStatusBar style="light" backgroundColor="#08111f" translucent={false} />
+        <View style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}>
+          {renderTopControls()}
+          <View style={styles.loading}>
+            {redlineSitesLoading ? <ActivityIndicator size="large" color="#4f46e5" /> : null}
+            <Text style={styles.loadingText}>{redlineSitesLoading ? 'Loading SiteWalk redline sites...' : 'Select a site to open SiteWalk redlines.'}</Text>
+            {!!error && redlineSites.length > 0 ? <Text style={styles.errorText}>{error}</Text> : null}
+          </View>
         </View>
       </SafeAreaView>
     );
   }
 
   if (loading) {
-    return <SafeAreaView style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}><View style={styles.loading}><ActivityIndicator size="large" color="#4f46e5" /><Text style={styles.loadingText}>{t("Loading PDF Editor...")}</Text></View></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.safeRoot}>
+        <ExpoStatusBar style="light" backgroundColor="#08111f" translucent={false} />
+        <View style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}>
+          <View style={styles.loading}><ActivityIndicator size="large" color="#4f46e5" /><Text style={styles.loadingText}>{t("Loading PDF Editor...")}</Text></View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <SafeAreaView style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}>
-      {renderTopControls({ compact: fullScreen })}
+    <SafeAreaView style={styles.safeRoot}>
+      <ExpoStatusBar style="light" backgroundColor="#08111f" translucent={false} />
+      <View style={[styles.screen, allowSiteSelection && styles.screenSiteWalkAdmin]}>
+        {renderTopControls({ compact: fullScreen })}
       {(offlinePrecache.active || offlinePrecache.complete || offlinePrecache.error) && (
         <View style={[styles.offlineSyncBar, styles.offlineModeBar]}>
           <View style={styles.offlineSyncHeader}>
@@ -8018,12 +8031,14 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
       {renderRights()}
       {renderPageManager()}
       {renderSearch()}
-      {renderDotPicker()}
+        {renderDotPicker()}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeRoot: { flex: 1, backgroundColor: '#08111f' },
   screen: { flex: 1, backgroundColor: '#e5e7eb' },
   screenSiteWalkAdmin: { backgroundColor: '#f1f5f9' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
