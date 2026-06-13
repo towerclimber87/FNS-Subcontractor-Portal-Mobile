@@ -25,6 +25,36 @@ export function buildApiUrl(portalUrl, path) {
   return `${normalizePortalUrl(portalUrl)}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function formatApiErrorDetail(detail) {
+  if (detail === undefined || detail === null || detail === '') return '';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!item) return '';
+        if (typeof item === 'string') return item;
+        const loc = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : '';
+        const msg = item.msg || item.message || item.detail || '';
+        return [loc, msg].filter(Boolean).join(': ');
+      })
+      .filter(Boolean);
+    return messages.length ? messages.join('\n') : JSON.stringify(detail);
+  }
+  if (typeof detail === 'object') {
+    const nested = detail.detail || detail.error || detail.message;
+    if (nested && nested !== detail) {
+      const formatted = formatApiErrorDetail(nested);
+      if (formatted) return formatted;
+    }
+    try {
+      return JSON.stringify(detail);
+    } catch (_error) {
+      return String(detail);
+    }
+  }
+  return String(detail);
+}
+
 async function parseJsonResponse(response) {
   let data = null;
   const text = await response.text();
@@ -36,8 +66,12 @@ async function parseJsonResponse(response) {
     }
   }
   if (!response.ok) {
-    const detail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
-    throw new Error(detail);
+    const rawDetail = data?.detail || data?.error || data?.message || `Request failed (${response.status})`;
+    const detail = formatApiErrorDetail(rawDetail) || `Request failed (${response.status})`;
+    const error = new Error(detail);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
   return data || {};
 }
@@ -272,16 +306,22 @@ export async function updateSubcontractorSiteDailyTrackerRecord(portalUrl, acces
   return parseJsonResponse(response);
 }
 
-export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset, filenameBase }) {
+export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, accessToken, { siteId, recordUid, caption, asset, filenameBase, category = 'subcontractor' }) {
+  if (!asset?.uri) throw new Error('No photo was selected.');
   const form = new FormData();
   form.append('site_id', String(siteId || ''));
-  form.append('record_uid', String(recordUid || ''));
-  form.append('category', 'subcontractor');
+  if (recordUid !== undefined && recordUid !== null && recordUid !== '') form.append('record_uid', String(recordUid));
+  form.append('category', category || 'subcontractor');
   if (caption) form.append('caption', caption);
+  form.append('replace_raw', 'true');
+  form.append('reset_status_raw', 'true');
+  form.append('synchronous_raw', 'true');
+  const photoName = filenameBase ? `${filenameBase}.jpg` : (asset.fileName || asset.name || `site-tracker-${Date.now()}.jpg`);
+  const photoType = asset.mimeType || asset.type || 'image/jpeg';
   form.append('files', {
     uri: asset.uri,
-    name: filenameBase ? `${filenameBase}.jpg` : (asset.fileName || `site-tracker-${Date.now()}.jpg`),
-    type: asset.mimeType || 'image/jpeg',
+    name: photoName,
+    type: photoType,
   });
 
   const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH}/photo-upload`), {
