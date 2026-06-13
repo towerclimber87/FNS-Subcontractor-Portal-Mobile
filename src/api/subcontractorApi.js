@@ -276,10 +276,6 @@ export async function uploadSubcontractorSiteDailyTrackerPhoto(portalUrl, access
   const form = new FormData();
   form.append('site_id', String(siteId || ''));
   form.append('record_uid', String(recordUid || ''));
-  // The web photo asset upload route expects collection_item_id. Keep record_uid for
-  // older mobile API compatibility, but also send collection_item_id so photos attach
-  // to the selected Site Daily Tracker row.
-  form.append('collection_item_id', String(recordUid || ''));
   form.append('category', 'subcontractor');
   if (caption) form.append('caption', caption);
   form.append('files', {
