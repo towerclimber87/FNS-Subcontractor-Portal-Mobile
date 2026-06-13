@@ -40,6 +40,8 @@ const VIEW_FILTERS = [
 ];
 
 const DEFAULT_ANNOTATION = { rot: 0, strokes: [], labels: [], shapes: [] };
+const ACTIVE_BLUE = '#4f46e5';
+const REFRESH_BLUE = '#2563eb';
 
 function siteName(project) {
   return project?.site_name || project?.name || '';
@@ -435,14 +437,6 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
             <Pressable style={[styles.refreshBtn, useWideControls && styles.refreshBtnWide]} onPress={() => fetchItems()}>
               <Text style={styles.refreshText}>Refresh</Text>
             </Pressable>
-            <View style={[styles.filterGroup, styles.categoryFilterGroup, useWideControls && styles.filterGroupInline]}>
-              <Text style={[styles.filterLabelRed, useWideControls && styles.filterLabelInline]}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRowCompact}>
-                <Pressable style={[styles.filterChip, styles.filterChipActive]}>
-                  <Text style={[styles.filterText, styles.filterTextActive]}>SUB ({items.length.toLocaleString()})</Text>
-                </Pressable>
-              </ScrollView>
-            </View>
           </View>
           <View style={[styles.controlsRow, useWideControls && styles.controlsRowWide]}>
             <View style={[styles.filterGroup, styles.statusFilterGroup, useWideControls && styles.statusFilterGroupWide]}>
@@ -469,7 +463,7 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
         </View>
 
         {loading ? (
-          <View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={styles.centerText}>Loading photos…</Text></View>
+          <View style={styles.center}><ActivityIndicator color={ACTIVE_BLUE} /><Text style={styles.centerText}>Loading photos…</Text></View>
         ) : error ? (
           <View style={styles.center}><Text style={styles.errorTitle}>Unable to load photos</Text><Text style={styles.errorText}>{error}</Text></View>
         ) : visibleItems.length === 0 ? (
@@ -541,29 +535,29 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  controlsCardWide: { gap: 8 },
+  controlsCardWide: { gap: 8, padding: 9 },
   controlsRow: { width: '100%', gap: 8 },
-  controlsRowWide: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  controlsRowWide: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   searchInput: {
-    minHeight: 48,
-    borderRadius: 13,
-    paddingHorizontal: 13,
+    minHeight: 38,
+    borderRadius: 11,
+    paddingHorizontal: 12,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ccd0f5',
     color: '#1e293b',
     fontWeight: '800',
-    fontSize: 15,
+    fontSize: 13.5,
   },
-  searchInputWide: { flex: 1, minWidth: 260 },
+  searchInputWide: { flex: 1, minWidth: 260, maxWidth: 560 },
   refreshBtn: {
-    minHeight: 48,
-    borderRadius: 13,
+    minHeight: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: REFRESH_BLUE,
     borderWidth: 1,
-    borderColor: '#6677f2',
+    borderColor: '#1d4ed8',
     paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOpacity: 0.12,
@@ -571,7 +565,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  refreshBtnWide: { minWidth: 96 },
+  refreshBtnWide: { minWidth: 94, alignSelf: 'stretch' },
   refreshText: { color: '#fff', fontWeight: '900', fontSize: 13 },
   filterGroup: {
     marginTop: 8,
@@ -587,8 +581,8 @@ const styles = StyleSheet.create({
   categoryFilterGroup: {},
   statusFilterGroup: {},
   viewFilterGroup: {},
-  statusFilterGroupWide: { flex: 1, marginTop: 0, justifyContent: 'center' },
-  viewFilterGroupWide: { flex: 1, marginTop: 0, justifyContent: 'center' },
+  statusFilterGroupWide: { flex: 1.1, marginTop: 0, justifyContent: 'center' },
+  viewFilterGroupWide: { flex: 0.95, marginTop: 0, justifyContent: 'center' },
   filterLabelRed: {
     color: '#ef4444',
     fontWeight: '900',
@@ -602,14 +596,14 @@ const styles = StyleSheet.create({
   chipRowCompact: { gap: 7, paddingRight: 8, alignItems: 'center' },
   filterChip: {
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 13,
     paddingVertical: 8,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { color: '#334155', fontWeight: '900', fontSize: 12.5 },
+  filterChipActive: { backgroundColor: ACTIVE_BLUE, borderColor: ACTIVE_BLUE },
+  filterText: { color: '#0f172a', fontWeight: '900', fontSize: 12.5 },
   filterTextActive: { color: '#fff' },
   list: { paddingBottom: 28 },
   cardWrap: { padding: 4 },
@@ -636,7 +630,7 @@ const styles = StyleSheet.create({
   viewerTitle: { color: '#fff', fontWeight: '900', fontSize: 16 },
   viewerSub: { color: '#cbd5e1', fontWeight: '800', marginTop: 2 },
   resetBtn: { borderRadius: 12, backgroundColor: '#334155', paddingHorizontal: 12, paddingVertical: 10 },
-  closeBtn: { borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10 },
+  closeBtn: { borderRadius: 12, backgroundColor: ACTIVE_BLUE, paddingHorizontal: 14, paddingVertical: 10 },
   viewerButtonText: { color: '#fff', fontWeight: '900' },
   viewerStage: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   viewerHint: { color: '#cbd5e1', textAlign: 'center', fontWeight: '800', paddingVertical: 8, paddingHorizontal: 10, backgroundColor: 'rgba(15,23,42,0.96)' },
