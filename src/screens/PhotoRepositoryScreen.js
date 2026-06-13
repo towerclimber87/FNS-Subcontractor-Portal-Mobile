@@ -10,6 +10,7 @@ import {
   PanResponder,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -33,9 +34,9 @@ const STATUS_FILTERS = [
 ];
 
 const VIEW_FILTERS = [
+  { key: 'unseen', label: 'Unviewed' },
+  { key: 'seen', label: 'Viewed' },
   { key: '', label: 'All' },
-  { key: 'unseen', label: 'Unseen' },
-  { key: 'seen', label: 'Seen' },
 ];
 
 const DEFAULT_ANNOTATION = { rot: 0, strokes: [], labels: [], shapes: [] };
@@ -225,6 +226,7 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const { width, height } = useWindowDimensions();
   const isTablet = width >= 720;
   const isWide = width >= 720;
+  const useWideControls = width >= 760;
   const columns = width >= 1200 ? 5 : width >= 900 ? 4 : width >= 680 ? 3 : 2;
   const [items, setItems] = useState([]);
   const [siteInfo, setSiteInfo] = useState(null);
@@ -419,35 +421,49 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
       backgroundSource={require('../../assets/subcontractor-home-background.png')}
     >
       <View style={styles.container}>
-        <View style={[styles.controls, isWide && styles.controlsWide]}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search photos"
-            placeholderTextColor="#7d8fa6"
-            style={[styles.search, isWide && styles.searchWide]}
-            returnKeyType="search"
-            onSubmitEditing={() => fetchItems()}
-          />
-          <Pressable style={styles.refreshBtn} onPress={() => fetchItems()}><Text style={styles.refreshText}>Refresh</Text></Pressable>
-          <View style={[styles.filterGroup, isWide && styles.filterGroupWide]}>
-            <Text style={styles.filterLabel}>Review</Text>
-            <View style={styles.filters}>
-              {STATUS_FILTERS.map((filter) => (
-                <Pressable key={filter.key || 'all'} style={[styles.filterChip, statusFilter === filter.key && styles.filterChipActive]} onPress={() => setStatusFilter(filter.key)}>
-                  <Text style={[styles.filterText, statusFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
+        <View style={[styles.controlsCard, useWideControls && styles.controlsCardWide]}>
+          <View style={[styles.controlsRow, useWideControls && styles.controlsRowWide]}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search photos…"
+              placeholderTextColor="#94a3b8"
+              style={[styles.searchInput, useWideControls && styles.searchInputWide]}
+              returnKeyType="search"
+              onSubmitEditing={() => fetchItems()}
+            />
+            <Pressable style={[styles.refreshBtn, useWideControls && styles.refreshBtnWide]} onPress={() => fetchItems()}>
+              <Text style={styles.refreshText}>Refresh</Text>
+            </Pressable>
+            <View style={[styles.filterGroup, styles.categoryFilterGroup, useWideControls && styles.filterGroupInline]}>
+              <Text style={[styles.filterLabelRed, useWideControls && styles.filterLabelInline]}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRowCompact}>
+                <Pressable style={[styles.filterChip, styles.filterChipActive]}>
+                  <Text style={[styles.filterText, styles.filterTextActive]}>SUB ({items.length.toLocaleString()})</Text>
                 </Pressable>
-              ))}
+              </ScrollView>
             </View>
           </View>
-          <View style={[styles.filterGroup, isWide && styles.filterGroupWide]}>
-            <Text style={styles.filterLabel}>Seen</Text>
-            <View style={styles.filters}>
-              {VIEW_FILTERS.map((filter) => (
-                <Pressable key={filter.key || 'all-view'} style={[styles.filterChip, viewFilter === filter.key && styles.filterChipActive]} onPress={() => setViewFilter(filter.key)}>
-                  <Text style={[styles.filterText, viewFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
-                </Pressable>
-              ))}
+          <View style={[styles.controlsRow, useWideControls && styles.controlsRowWide]}>
+            <View style={[styles.filterGroup, styles.statusFilterGroup, useWideControls && styles.statusFilterGroupWide]}>
+              <Text style={[styles.filterLabelRed, useWideControls && styles.filterLabelInline]}>Photo Status</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRowCompact}>
+                {STATUS_FILTERS.map((filter) => (
+                  <Pressable key={filter.key || 'all'} style={[styles.filterChip, statusFilter === filter.key && styles.filterChipActive]} onPress={() => setStatusFilter(filter.key)}>
+                    <Text style={[styles.filterText, statusFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={[styles.filterGroup, styles.viewFilterGroup, useWideControls && styles.viewFilterGroupWide]}>
+              <Text style={[styles.filterLabelRed, useWideControls && styles.filterLabelInline]}>Viewed Status</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRowCompact}>
+                {VIEW_FILTERS.map((filter) => (
+                  <Pressable key={filter.key || 'all-view'} style={[styles.filterChip, viewFilter === filter.key && styles.filterChipActive]} onPress={() => setViewFilter(filter.key)}>
+                    <Text style={[styles.filterText, viewFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           </View>
         </View>
@@ -512,29 +528,97 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 10 },
-  controls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 },
-  controlsWide: { alignItems: 'center' },
-  search: { flexGrow: 1, flexBasis: '100%', minHeight: 40, borderRadius: 12, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#c7d7ec', color: colors.text, fontWeight: '800' },
-  searchWide: { flexBasis: 320, maxWidth: 430 },
-  refreshBtn: { minWidth: 82, minHeight: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingHorizontal: 12 },
-  refreshText: { color: '#fff', fontWeight: '900' },
-  filterGroup: { flexDirection: 'column', gap: 4, marginBottom: 2 },
-  filterGroupWide: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  filterLabel: { color: '#dbeafe', fontWeight: '900', marginRight: 2 },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  filterChip: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: 'rgba(255,255,255,0.88)', borderWidth: 1, borderColor: '#c7d7ec' },
-  filterChipActive: { backgroundColor: '#10233f', borderColor: '#10233f' },
-  filterText: { color: colors.text, fontWeight: '900' },
+  controlsCard: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dbe4ff',
+    padding: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  controlsCardWide: { gap: 8 },
+  controlsRow: { width: '100%', gap: 8 },
+  controlsRowWide: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  searchInput: {
+    minHeight: 48,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccd0f5',
+    color: '#1e293b',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  searchInputWide: { flex: 1, minWidth: 260 },
+  refreshBtn: {
+    minHeight: 48,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: '#6677f2',
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  refreshBtnWide: { minWidth: 96 },
+  refreshText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  filterGroup: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 8,
+    paddingTop: 7,
+    paddingBottom: 8,
+  },
+  filterGroupInline: { marginTop: 0, minHeight: 48, justifyContent: 'center' },
+  categoryFilterGroup: {},
+  statusFilterGroup: {},
+  viewFilterGroup: {},
+  statusFilterGroupWide: { flex: 1, marginTop: 0, justifyContent: 'center' },
+  viewFilterGroupWide: { flex: 1, marginTop: 0, justifyContent: 'center' },
+  filterLabelRed: {
+    color: '#ef4444',
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  filterLabelInline: { textAlign: 'left', marginLeft: 4 },
+  chipRowCompact: { gap: 7, paddingRight: 8, alignItems: 'center' },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterText: { color: '#334155', fontWeight: '900', fontSize: 12.5 },
   filterTextActive: { color: '#fff' },
   list: { paddingBottom: 28 },
   cardWrap: { padding: 4 },
-  card: { overflow: 'hidden', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#c7d7ec', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  thumb: { width: '100%', aspectRatio: 1.2, backgroundColor: '#dbe8f6' },
-  unseenPill: { position: 'absolute', top: 6, right: 6, overflow: 'hidden', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: '#dc2626', color: '#fff', fontWeight: '900', fontSize: 9 },
-  cardBody: { padding: 7, gap: 4 },
+  card: { overflow: 'hidden', borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.96)', borderWidth: 1, borderColor: '#d7e3f2', shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  thumb: { width: '100%', aspectRatio: 1.18, backgroundColor: '#dbe8f6' },
+  unseenPill: { position: 'absolute', top: 6, right: 6, overflow: 'hidden', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: '#f59e0b', color: '#fff', fontWeight: '900', fontSize: 9, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  cardBody: { paddingHorizontal: 7, paddingTop: 6, paddingBottom: 6, gap: 3 },
   caption: { color: colors.text, fontWeight: '900', fontSize: 11.5, lineHeight: 15, minHeight: 30 },
   compactMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   dateText: { color: '#64748b', fontSize: 9.5, fontWeight: '800' },
   viewed: { color: '#2563eb', fontSize: 9, fontWeight: '900' },
   badge: { alignSelf: 'flex-start', overflow: 'hidden', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2.5, fontSize: 8.5, fontWeight: '900' },
@@ -542,7 +626,7 @@ const styles = StyleSheet.create({
   badgeRejected: { color: '#991b1b', backgroundColor: '#fee2e2' },
   badgePending: { color: '#92400e', backgroundColor: '#fef3c7' },
   pressed: { opacity: 0.72 },
-  center: { margin: 16, padding: 24, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)', borderWidth: 1, borderColor: '#c7d7ec', alignItems: 'center', gap: 8 },
+  center: { margin: 16, padding: 24, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: '#c7d7ec', alignItems: 'center', gap: 8 },
   centerText: { color: '#64748b', fontWeight: '800', textAlign: 'center' },
   emptyTitle: { color: colors.text, fontWeight: '900', fontSize: 17 },
   errorTitle: { color: '#991b1b', fontWeight: '900', fontSize: 17 },
