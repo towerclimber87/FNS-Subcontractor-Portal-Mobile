@@ -118,6 +118,7 @@ export default function App() {
   if (route.name === 'project') {
     return (
       <ProjectScreen
+        session={session}
         project={route.project}
         pages={route.pages}
         onBack={goHome}
