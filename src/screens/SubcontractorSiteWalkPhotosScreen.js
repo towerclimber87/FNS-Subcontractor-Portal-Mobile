@@ -7,8 +7,8 @@ const TAGS = ['All', 'Antenna', 'Node', 'Cores', 'Miscellaneous', 'IDF / ER', 'E
 const clean = (v) => String(v ?? '').trim();
 const siteName = (project) => clean(project?.site_name || project?.name || project?.label || project);
 const photoTitle = (p) => clean(p?.name || p?.caption || p?.file_name || `Photo ${p?.id || ''}`) || 'SiteWalk Photo';
-const photoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.thumb_url || p?.url || p?.public_url || p?.image_url);
-const fullPhotoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.url || p?.public_url || p?.photo_url || p?.full_url || p?.thumb_url || p?.image_url);
+const photoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.mobile_thumb_url || p?.mobile_thumb || p?.thumb_url || p?.thumbnail_url || p?.url || p?.public_url || p?.image_url);
+const fullPhotoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.rendered_url || p?.url || p?.public_url || p?.photo_url || p?.full_url || p?.thumb_url || p?.image_url);
 const pinPhotoId = (pin) => clean(pin?.matching_photo_id || pin?.photo_id || pin?.site_walk_photo_id || pin?.sitewalk_photo_id || pin?.linked_photo_id);
 const pinPhotoUrl = (pin) => clean(pin?.matching_photo_url || pin?.photo_url || pin?.site_walk_photo_url || pin?.image_url || pin?.url);
 const fallbackPhotoFromPin = (pin) => {
@@ -89,7 +89,7 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {sitewalks.map((walk, idx) => {
               const value = clean(walk?.value || walk?.sitewalk_desc || walk) || `SiteWalk ${idx + 1}`;
-              return <Pressable key={`${value}-${idx}`} onPress={() => setSelectedSitewalk(value)} style={[styles.chip, selectedSitewalk === value && styles.chipActive]}><Text style={[styles.chipText, selectedSitewalk === value && styles.chipTextActive]}>{value}</Text></Pressable>;
+              return <Pressable key={`${value}-${idx}`} onPress={() => { setSelectedSitewalk(value); setTag('All'); }} style={[styles.chip, selectedSitewalk === value && styles.chipActive]}><Text style={[styles.chipText, selectedSitewalk === value && styles.chipTextActive]}>{value}</Text></Pressable>;
             })}
           </ScrollView>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
