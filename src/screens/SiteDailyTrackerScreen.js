@@ -579,7 +579,7 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
     <View style={styles.page}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.safeArea}>
-        <Header siteName={siteInfo?.site_name || selectedSiteName} userName={session?.employee?.friendly_name || session?.employee?.name || session?.employee?.email || ''} onBack={onBack} onRefresh={() => load()} isTablet={isTablet} />
+        <Header siteName={siteInfo?.site_name || selectedSiteName} userName={session?.employee?.friendly_name || session?.employee?.name || session?.employee?.email || ''} onBack={onBack} onHome={onHome} onRefresh={() => load()} isTablet={isTablet} />
 
         <View style={[styles.controls, isTablet ? styles.controlsTablet : styles.controlsMobile]}> 
           <TextInput
@@ -679,7 +679,7 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
   );
 }
 
-function Header({ siteName: title, userName, onBack, onRefresh, isTablet }) {
+function Header({ siteName: title, userName, onBack, onHome, onRefresh, isTablet }) {
   return (
     <View style={[styles.header, !isTablet && styles.headerMobile]}>
       <View style={styles.headerTitleBlock}>
@@ -688,6 +688,7 @@ function Header({ siteName: title, userName, onBack, onRefresh, isTablet }) {
       </View>
       <View style={[styles.headerRight, !isTablet && styles.headerRightMobile]}>
         <Pressable style={[styles.headerButton, !isTablet && styles.headerButtonMobile]} onPress={onRefresh}><Text style={styles.headerButtonText}>{t("Refresh")}</Text></Pressable>
+        {typeof onHome === 'function' ? <Pressable style={[styles.headerButton, !isTablet && styles.headerButtonMobile]} onPress={onHome}><Text style={styles.headerButtonText}>{t("Home")}</Text></Pressable> : null}
         <Pressable style={[styles.headerButton, !isTablet && styles.headerButtonMobile]} onPress={onBack}><Text style={styles.headerButtonText}>{t("Back")}</Text></Pressable>
       </View>
     </View>

@@ -19,14 +19,14 @@ export default function ScreenShell({ title, subtitle, onBack, onHome, onLogout,
               <Text style={styles.logoutText}>Logout</Text>
             </Pressable>
           ) : null}
-          {typeof onBack === 'function' ? (
-            <Pressable style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]} onPress={onBack}>
-              <Text style={styles.headerButtonText}>Back</Text>
-            </Pressable>
-          ) : null}
           {typeof onHome === 'function' ? (
             <Pressable style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]} onPress={onHome}>
               <Text style={styles.headerButtonText}>Home</Text>
+            </Pressable>
+          ) : null}
+          {typeof onBack === 'function' ? (
+            <Pressable style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]} onPress={onBack}>
+              <Text style={styles.headerButtonText}>Back</Text>
             </Pressable>
           ) : null}
         </View>

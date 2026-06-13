@@ -6681,7 +6681,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
             <Text style={styles.userName}>{session?.employee?.name || session?.employee?.friendly_name || session?.email || 'Employee'}</Text>
             <Text style={styles.roleText}>{selectedSiteName}</Text>
           </View>
-          <View style={styles.headerActionsRow}><Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onBack}><Text style={styles.headerBtnText}>{t("Back")}</Text></Pressable>{typeof onHome === 'function' ? <Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onHome}><Text style={styles.headerBtnText}>{t("Home")}</Text></Pressable> : null}
+          <View style={styles.headerActionsRow}>{typeof onHome === 'function' ? <Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onHome}><Text style={styles.headerBtnText}>{t("Home")}</Text></Pressable> : null}<Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onBack}><Text style={styles.headerBtnText}>{t("Back")}</Text></Pressable>
           </View>
         </View>
         {!compact && <View style={styles.controlsRow}>

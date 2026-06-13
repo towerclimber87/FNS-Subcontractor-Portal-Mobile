@@ -516,8 +516,8 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
           <Text style={styles.title}>Material Tracker</Text>
           <Text style={styles.headerSub} numberOfLines={1}>{currentSite || 'No site selected'}</Text>
         </View>
-        <Pressable style={styles.backButton} onPress={onBack}><Text style={styles.backButtonText}>Back</Text></Pressable>
         {typeof onHome === 'function' ? <Pressable style={styles.backButton} onPress={onHome}><Text style={styles.backButtonText}>Home</Text></Pressable> : null}
+        <Pressable style={styles.backButton} onPress={onBack}><Text style={styles.backButtonText}>Back</Text></Pressable>
       </View>
       <View style={styles.toolbar}>
         <TextInput value={query} onChangeText={setQuery} placeholder="Search materials" placeholderTextColor="#7d8ca8" style={styles.searchInput} />
