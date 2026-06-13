@@ -187,28 +187,55 @@ function toPhotoFilenameBase(row) {
   return normalizePhotoBase(parts.join('-')) || 'Photo';
 }
 
+function rowPhotoKeys(row) {
+  return [row?.id, row?.uid, row?.record_uid]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean);
+}
+
+function normalizeRowPhotoReview(row, value) {
+  let status = clean(value).toLowerCase();
+  if (!['approved', 'rejected', 'pending', 'in_progress'].includes(status)) return null;
+
+  // Match the subcontractor web tracker behavior:
+  // a pending subcontractor photo on an incomplete/construction item is shown
+  // as in-progress/yellow.  Completed/final pending photos stay blue.
+  if (status === 'pending' && !isCompleted(row?.item_status)) status = 'in_progress';
+  return status;
+}
+
 function derivePhotoStatus(row, photoStatuses, recentPhotoBases = {}) {
-  const base = toPhotoFilenameBase(row);
-  if (recentPhotoBases?.[base] || recentPhotoBases?.[base.toLowerCase()]) {
-    return { status: 'pending', label: 'Uploaded photo pending review' };
+  const keys = rowPhotoKeys(row);
+
+  // Local optimistic upload state must be row-scoped.  Do not match all rows by
+  // category/base here, because many tracker rows can share task/location text.
+  if (keys.some((key) => recentPhotoBases?.[key])) {
+    const status = normalizeRowPhotoReview(row, 'pending') || 'pending';
+    return { status, label: status === 'in_progress' ? 'Construction photo uploaded' : 'Uploaded photo pending review' };
   }
-  const meta = photoStatuses?.[base] || photoStatuses?.[base.toLowerCase()] || photoStatuses?.[row?.id] || photoStatuses?.[row?.uid];
+
+  let meta;
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(photoStatuses || {}, key)) {
+      meta = photoStatuses[key];
+      break;
+    }
+  }
+
   if (meta && typeof meta === 'object') {
     if (!meta.hasAsset && !meta.hasSubcontractor) return { status: 'none', label: 'No photo' };
-    const review = clean(meta.review || meta.status || meta.review_status).toLowerCase();
-    if (['approved', 'rejected', 'pending', 'in_progress'].includes(review)) {
-      return { status: review, label: `${review.replace(/_/g, ' ')} photo` };
-    }
-    return { status: 'pending', label: 'Photo pending review' };
+    const review = normalizeRowPhotoReview(row, meta.review || meta.status || meta.review_status);
+    if (review) return { status: review, label: `${review.replace(/_/g, ' ')} photo` };
+    const fallback = normalizeRowPhotoReview(row, 'pending') || 'pending';
+    return { status: fallback, label: 'Photo pending review' };
   }
-  const mapped = clean(meta).toLowerCase();
-  if (['approved', 'rejected', 'pending', 'in_progress'].includes(mapped)) {
-    return { status: mapped, label: `${mapped.replace(/_/g, ' ')} photo` };
-  }
-  const direct = clean(row?.photo_status).toLowerCase();
-  if (['approved', 'rejected', 'pending', 'in_progress'].includes(direct)) {
-    return { status: direct, label: `${direct.replace(/_/g, ' ')} photo` };
-  }
+
+  const mapped = normalizeRowPhotoReview(row, meta);
+  if (mapped) return { status: mapped, label: `${mapped.replace(/_/g, ' ')} photo` };
+
+  const direct = normalizeRowPhotoReview(row, row?.photo_status);
+  if (direct) return { status: direct, label: `${direct.replace(/_/g, ' ')} photo` };
+
   return { status: 'none', label: 'No photo' };
 }
 
@@ -454,19 +481,11 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
 
       const asset = result.assets[0];
       const base = toPhotoFilenameBase(row);
-      const pendingKeys = {
-        [base]: true,
-        [base.toLowerCase()]: true,
-        [String(row.id)]: true,
-        [String(row.uid || row.id)]: true,
-      };
+      const pendingKeys = Object.fromEntries(rowPhotoKeys(row).map((key) => [key, true]));
       setRecentPhotoBases((prev) => ({ ...prev, ...pendingKeys }));
       setPhotoStatuses((prev) => ({
         ...prev,
-        [base]: 'pending',
-        [base.toLowerCase()]: 'pending',
-        [String(row.id)]: 'pending',
-        [String(row.uid || row.id)]: 'pending',
+        ...Object.fromEntries(rowPhotoKeys(row).map((key) => [key, 'pending'])),
       }));
       patchLocal(row.id, { photo_status: 'pending' });
 
@@ -482,16 +501,9 @@ export default function SiteDailyTrackerScreen({ session, project, page, onBack,
       const returnedStatus = uploadResult?.photo_status || uploadResult?.status || uploadResult?.status_meta?.review || 'pending';
       const returnedStatuses = uploadResult?.photo_statuses || {};
       if (returnedBase || Object.keys(returnedStatuses).length) {
-        const extraPending = { ...returnedStatuses };
-        if (returnedBase) {
-          extraPending[returnedBase] = returnedStatus;
-          extraPending[String(returnedBase).toLowerCase()] = returnedStatus;
-        }
-        setRecentPhotoBases((prev) => {
-          const next = { ...prev };
-          for (const key of Object.keys(extraPending)) next[key] = true;
-          return next;
-        });
+        const extraPending = {};
+        for (const key of rowPhotoKeys(row)) extraPending[key] = returnedStatus;
+        setRecentPhotoBases((prev) => ({ ...prev, ...Object.fromEntries(rowPhotoKeys(row).map((key) => [key, true])) }));
         setPhotoStatuses((prev) => ({ ...prev, ...extraPending }));
       }
       await load({ silent: true, preserveRecentPhotos: true });
