@@ -300,12 +300,12 @@ function MaterialFormModal({ visible, title, siteNameValue, initialItem, onClose
   );
 }
 
-function MaterialCard({ item, onEdit, onAddPhoto, onReceiveChange, receiveSaving }) {
+function MaterialCard({ item, wide = false, onEdit, onAddPhoto, onReceiveChange, receiveSaving }) {
   const status = clean(item.status || 'Not Completed');
   const statusStyle = status === 'Completed' ? styles.statusCompleted : status === 'Missing' || status === 'Damaged' ? styles.statusBad : styles.statusOpen;
   const receivedValue = numberOrBlank(item.received_qty);
   return (
-    <View style={[styles.itemCard, item.pending && styles.pendingCard]}>
+    <View style={[styles.itemCard, wide && styles.itemCardWide, item.pending && styles.pendingCard]}>
       <View style={styles.itemTop}>
         <View style={styles.itemMain}>
           <Text style={styles.itemTitle} numberOfLines={1}>{item.description || 'Untitled Material'}</Text>
@@ -348,6 +348,7 @@ function MaterialCard({ item, onEdit, onAddPhoto, onReceiveChange, receiveSaving
 export default function MaterialTrackerScreen({ session, project, onBack, onHome }) {
   const { width } = useWindowDimensions();
   const isTablet = width >= 760;
+  const isWideTablet = width >= 900;
   const portalUrl = session?.portalUrl;
   const token = session?.access_token;
   const selectedSiteName = siteName(project);
@@ -519,26 +520,29 @@ export default function MaterialTrackerScreen({ session, project, onBack, onHome
         {typeof onHome === 'function' ? <Pressable style={styles.backButton} onPress={onHome}><Text style={styles.backButtonText}>Home</Text></Pressable> : null}
         <Pressable style={styles.backButton} onPress={onBack}><Text style={styles.backButtonText}>Back</Text></Pressable>
       </View>
-      <View style={styles.toolbar}>
+      <View style={[styles.toolbar, isWideTablet && styles.toolbarWide]}>
         <TextInput value={query} onChangeText={setQuery} placeholder="Search materials" placeholderTextColor="#7d8ca8" style={styles.searchInput} />
         <Pressable style={styles.addButton} disabled={saving} onPress={() => { setEditingItem(null); setFormVisible(true); }}><Text style={styles.addButtonText}>+ Add</Text></Pressable>
       </View>
       <StatusFilterButton value={statusFilter} showCompleted={showCompleted} onSelect={setStatusFilter} onToggleCompleted={() => setShowCompleted((current) => !current)} />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.listContent, isTablet && styles.listContentTablet]}
+        contentContainerStyle={[styles.listContent, isTablet && styles.listContentTablet, isWideTablet && styles.listContentWide]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load({ silent: true }); }} tintColor="#7aa2ff" />}
       >
-        {visibleItems.map((item) => (
-          <MaterialCard
-            key={String(item.id)}
-            item={item}
-            onEdit={(row) => { setEditingItem(row); setFormVisible(true); }}
-            onAddPhoto={addPhotoToItem}
-            onReceiveChange={updateReceivedQtyLive}
-            receiveSaving={Boolean(receiveSavingById[item.id])}
-          />
-        ))}
+        <View style={[styles.materialGrid, isWideTablet && styles.materialGridWide]}>
+          {visibleItems.map((item) => (
+            <MaterialCard
+              key={String(item.id)}
+              item={item}
+              wide={isWideTablet}
+              onEdit={(row) => { setEditingItem(row); setFormVisible(true); }}
+              onAddPhoto={addPhotoToItem}
+              onReceiveChange={updateReceivedQtyLive}
+              receiveSaving={Boolean(receiveSavingById[item.id])}
+            />
+          ))}
+        </View>
         {!visibleItems.length ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No materials found</Text><Text style={styles.emptyText}>Add a material item or adjust your search/filter.</Text></View> : null}
       </ScrollView>
       <MaterialFormModal visible={formVisible} title={editingItem ? 'Edit Material' : 'Add Material'} siteNameValue={currentSite} initialItem={editingItem} onClose={() => { setFormVisible(false); setEditingItem(null); }} onSave={saveItem} />
@@ -562,7 +566,11 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 14, paddingBottom: 120, gap: 14 },
   listContent: { padding: 14, paddingBottom: 38, gap: 12 },
   listContentTablet: { maxWidth: 980, alignSelf: 'center', width: '100%' },
+  listContentWide: { maxWidth: 1480, paddingHorizontal: 18 },
+  materialGrid: { gap: 12 },
+  materialGridWide: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 14, alignItems: 'stretch' },
   toolbar: { padding: 12, gap: 10, flexDirection: 'row', backgroundColor: '#07111f' },
+  toolbarWide: { paddingHorizontal: 18 },
   searchInput: { color: '#f7f9ff', minHeight: 46, borderRadius: 12, paddingHorizontal: 12, backgroundColor: '#10243a', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)', fontWeight: '700', flex: 1 },
   addButton: { borderRadius: 14, paddingHorizontal: 18, minHeight: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4b5cf0' },
   addButtonText: { color: '#fff', fontWeight: '900' },
@@ -656,6 +664,7 @@ const styles = StyleSheet.create({
   compactQtyRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
   photoCountText: { color: '#b7c4dc', fontWeight: '900', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5 },
   itemCard: { borderRadius: 16, paddingHorizontal: 11, paddingTop: 10, paddingBottom: 9, backgroundColor: '#0f1f35', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', gap: 6 },
+  itemCardWide: { width: '48.8%', minWidth: 400 },
   itemTitle: { color: '#f7f9ff', fontSize: 15, fontWeight: '900' },
   itemSub: { color: '#9fafc8', marginTop: 2, fontWeight: '700', fontSize: 12 },
   qtyText: { color: '#dfe7ff', fontWeight: '900', backgroundColor: '#10243a', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, fontSize: 12 },

@@ -6681,7 +6681,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
             <Text style={styles.userName}>{session?.employee?.name || session?.employee?.friendly_name || session?.email || 'Employee'}</Text>
             <Text style={styles.roleText}>{selectedSiteName}</Text>
           </View>
-          <View style={styles.headerActionsRow}>{typeof onHome === 'function' ? <Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onHome}><Text style={styles.headerBtnText}>{t("Home")}</Text></Pressable> : null}<Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onBack}><Text style={styles.headerBtnText}>{t("Back")}</Text></Pressable>
+          <View style={styles.headerActionsRow}><Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onBack}><Text style={styles.headerBtnText}>{t("Back")}</Text></Pressable>{typeof onHome === 'function' ? <Pressable style={[styles.headerBtn, styles.homeHeaderBtn]} onPress={onHome}><Text style={styles.headerBtnText}>{t("Home")}</Text></Pressable> : null}
           </View>
         </View>
         {!compact && <View style={styles.controlsRow}>
@@ -7228,7 +7228,12 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
   function renderCloudModal() {
     return (
       <Modal visible={cloudVisible} transparent animationType="fade" onRequestClose={() => { setCloudVisible(false); setEditingCloudAnn(null); }}>
-        <Pressable style={styles.modalBackdrop} onPress={() => { setCloudVisible(false); setEditingCloudAnn(null); }}>
+        <KeyboardAvoidingView
+          style={styles.keyboardModalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => { setCloudVisible(false); setEditingCloudAnn(null); }} />
           <Pressable style={styles.cloudModal} onPress={(event) => event.stopPropagation?.()}>
             <Text style={styles.modalTitle}>{editingCloudAnn?.id ? 'Edit Cloud' : 'Add Cloud'}</Text>
             <Text style={styles.resultText}>{editingCloudAnn?.id ? 'Update the cloud text.' : 'Enter the cloud text, then tap the page to place it.'}</Text>
@@ -7249,7 +7254,7 @@ function SiteWalkRedlinesNative({ portalUrl, session, site, onBack, onHome, onOp
               </Pressable>
             </View>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
@@ -8242,6 +8247,7 @@ const styles = StyleSheet.create({
   editMoveLineHit: { position: 'absolute', backgroundColor: 'transparent' },
   editHandle: { position: 'absolute', backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#2563eb', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 3, elevation: 5 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', alignItems: 'center', justifyContent: 'center', padding: 18 },
+  keyboardModalBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.35)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingTop: 44, paddingBottom: Platform.OS === 'android' ? 34 : 18 },
   dropdownModal: { width: '100%', maxWidth: 520, backgroundColor: '#fff', borderRadius: 18, padding: 14 },
   dropdownSearchInput: { marginBottom: 8, color: '#111827', backgroundColor: '#f8fafc', borderColor: '#cbd5e1' },
   dropdownOptionsScroll: { maxHeight: 420 },
