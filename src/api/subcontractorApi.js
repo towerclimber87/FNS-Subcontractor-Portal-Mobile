@@ -357,6 +357,14 @@ export async function loadSubcontractorSiteWalkPhotos(portalUrl, accessToken, { 
   return parseJsonResponse(response);
 }
 
+export async function loadSubcontractorSiteWalkPhotoAnnotation(portalUrl, accessToken, photoKey) {
+  const response = await fetch(buildApiUrl(portalUrl, `/mobile/subcontractor/api/site-walk-photos/${encodeURIComponent(String(photoKey || ''))}/annotation`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
 export async function loadSubcontractorSiteWalk360(portalUrl, accessToken, { siteName, sitewalk = '', tag = '', q = '' } = {}) {
   const params = new URLSearchParams();
   params.set('site_name', siteName || '');
