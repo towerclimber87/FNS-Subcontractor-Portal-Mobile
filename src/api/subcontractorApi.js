@@ -11,6 +11,7 @@ const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/dele
 const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-tracker';
 const SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH = '/mobile/subcontractor/api/site-daily-tracker';
 const SUBCONTRACTOR_DAILY_REPORT_PATH = '/mobile/subcontractor/api/daily-report';
+const SUBCONTRACTOR_PHOTO_REPOSITORY_PATH = '/mobile/subcontractor/api/photo-repository';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -240,6 +241,30 @@ export async function submitSubcontractorDailyReport(portalUrl, accessToken, fie
     method: 'POST',
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
     body: fd,
+  });
+  return parseJsonResponse(response);
+}
+
+
+export async function loadSubcontractorPhotoRepository(portalUrl, accessToken, { siteName = '', siteId = '', q = '', statusFilter = '' } = {}) {
+  const params = new URLSearchParams();
+  if (siteName) params.set('site_name', siteName);
+  if (siteId) params.set('site_id', String(siteId));
+  if (q) params.set('q', q);
+  if (statusFilter) params.set('status_filter', statusFilter);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_PHOTO_REPOSITORY_PATH}${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function markSubcontractorPhotoViewed(portalUrl, accessToken, assetId) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_PHOTO_REPOSITORY_PATH}/mark-viewed`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ asset_id: assetId }),
   });
   return parseJsonResponse(response);
 }

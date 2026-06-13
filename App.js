@@ -9,6 +9,7 @@ import SowDocumentsScreen from './src/screens/SowDocumentsScreen';
 import MaterialTrackerScreen from './src/screens/MaterialTrackerScreen';
 import SiteDailyTrackerScreen from './src/screens/SiteDailyTrackerScreen';
 import SubcontractorDailyReportScreen from './src/screens/SubcontractorDailyReportScreen';
+import PhotoRepositoryScreen from './src/screens/PhotoRepositoryScreen';
 import PlaceholderScreen from './src/screens/PlaceholderScreen';
 import SubcontractorSiteWalkPhotosScreen from './src/screens/SubcontractorSiteWalkPhotosScreen';
 import SubcontractorSiteWalk360Screen from './src/screens/SubcontractorSiteWalk360Screen';
@@ -120,7 +121,7 @@ export default function App() {
         pages={route.pages}
         onBack={goHome}
         onHome={goHome}
-        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : page?.key === 'material_tracker' ? 'materialTracker' : page?.key === 'site_daily_tracker' ? 'siteDailyTracker' : page?.key === 'daily_reports' ? 'dailyReports' : page?.key === 'site_walk_redlines' ? 'pdfEditor' : page?.key === 'site_walk_photos' ? 'siteWalkPhotos' : page?.key === 'site_walk_360' ? 'siteWalk360' : 'placeholder', page, project, pages: route.pages })}
+        onOpenPage={(page, project) => setRoute({ name: page?.key === 'sow_documents' ? 'sowDocuments' : page?.key === 'material_tracker' ? 'materialTracker' : page?.key === 'site_daily_tracker' ? 'siteDailyTracker' : page?.key === 'daily_reports' ? 'dailyReports' : page?.key === 'photo_repository' ? 'photoRepository' : page?.key === 'site_walk_redlines' ? 'pdfEditor' : page?.key === 'site_walk_photos' ? 'siteWalkPhotos' : page?.key === 'site_walk_360' ? 'siteWalk360' : 'placeholder', page, project, pages: route.pages })}
       />
     );
   }
@@ -169,6 +170,19 @@ export default function App() {
   if (route.name === 'dailyReports') {
     return (
       <SubcontractorDailyReportScreen
+        session={session}
+        project={route.project}
+        page={route.page}
+        onBack={() => setRoute({ name: 'project', project: route.project, pages: route.pages })}
+        onHome={goHome}
+      />
+    );
+  }
+
+
+  if (route.name === 'photoRepository') {
+    return (
+      <PhotoRepositoryScreen
         session={session}
         project={route.project}
         page={route.page}
