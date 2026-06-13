@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Platform,
   FlatList,
   Image,
   Modal,
@@ -12,6 +13,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  StatusBar,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -222,7 +224,8 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const token = session?.access_token;
   const { width, height } = useWindowDimensions();
   const isTablet = width >= 720;
-  const columns = width >= 1050 ? 4 : width >= 720 ? 3 : 2;
+  const isWide = width >= 720;
+  const columns = width >= 1200 ? 5 : width >= 900 ? 4 : width >= 680 ? 3 : 2;
   const [items, setItems] = useState([]);
   const [siteInfo, setSiteInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -230,7 +233,7 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [viewFilter, setViewFilter] = useState('');
+  const [viewFilter, setViewFilter] = useState('unseen');
   const [selected, setSelected] = useState(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState(DEFAULT_ANNOTATION);
   const [annotationLoading, setAnnotationLoading] = useState(false);
@@ -240,6 +243,8 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const gestureRef = useRef({ distance: 0, scale: 1, pan: { x: 0, y: 0 }, lastPoint: null });
 
   const imageHeaders = useMemo(() => token ? { Authorization: `Bearer ${token}` } : undefined, [token]);
+  const viewerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 18 : (isTablet ? 38 : 54);
+  const viewerBottomPad = Platform.OS === 'android' ? 30 : (isTablet ? 18 : 30);
 
   const fetchItems = useCallback(async ({ silent = false } = {}) => {
     if (!portalUrl || !token) return;
@@ -394,11 +399,11 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
           {!item.viewed_by_me ? <Text style={styles.unseenPill}>Unseen</Text> : null}
           <View style={styles.cardBody}>
             <Text style={styles.caption} numberOfLines={2}>{item.caption || item.filename || 'Photo'}</Text>
-            <View style={styles.metaRow}>
+            <View style={styles.compactMetaRow}>
               <Text style={styles.dateText}>{item.display_date || ''}</Text>
+              <Text style={[styles.badge, statusStyle(item.review_status)]}>{statusLabel(item.review_status)}</Text>
               {item.viewed_by_me ? <Text style={styles.viewed}>Seen</Text> : null}
             </View>
-            <Text style={[styles.badge, statusStyle(item.review_status)]}>{statusLabel(item.review_status)}</Text>
           </View>
         </View>
       </Pressable>
@@ -414,34 +419,37 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
       backgroundSource={require('../../assets/subcontractor-home-background.png')}
     >
       <View style={styles.container}>
-        <View style={styles.toolbar}>
+        <View style={[styles.controls, isWide && styles.controlsWide]}>
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Search photos"
             placeholderTextColor="#7d8fa6"
-            style={styles.search}
+            style={[styles.search, isWide && styles.searchWide]}
             returnKeyType="search"
             onSubmitEditing={() => fetchItems()}
           />
           <Pressable style={styles.refreshBtn} onPress={() => fetchItems()}><Text style={styles.refreshText}>Refresh</Text></Pressable>
-        </View>
-
-        <Text style={styles.filterLabel}>Review Status</Text>
-        <View style={styles.filters}>
-          {STATUS_FILTERS.map((filter) => (
-            <Pressable key={filter.key || 'all'} style={[styles.filterChip, statusFilter === filter.key && styles.filterChipActive]} onPress={() => setStatusFilter(filter.key)}>
-              <Text style={[styles.filterText, statusFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.filterLabel}>Seen / Unseen</Text>
-        <View style={styles.filters}>
-          {VIEW_FILTERS.map((filter) => (
-            <Pressable key={filter.key || 'all-view'} style={[styles.filterChip, viewFilter === filter.key && styles.filterChipActive]} onPress={() => setViewFilter(filter.key)}>
-              <Text style={[styles.filterText, viewFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
-            </Pressable>
-          ))}
+          <View style={[styles.filterGroup, isWide && styles.filterGroupWide]}>
+            <Text style={styles.filterLabel}>Review</Text>
+            <View style={styles.filters}>
+              {STATUS_FILTERS.map((filter) => (
+                <Pressable key={filter.key || 'all'} style={[styles.filterChip, statusFilter === filter.key && styles.filterChipActive]} onPress={() => setStatusFilter(filter.key)}>
+                  <Text style={[styles.filterText, statusFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={[styles.filterGroup, isWide && styles.filterGroupWide]}>
+            <Text style={styles.filterLabel}>Seen</Text>
+            <View style={styles.filters}>
+              {VIEW_FILTERS.map((filter) => (
+                <Pressable key={filter.key || 'all-view'} style={[styles.filterChip, viewFilter === filter.key && styles.filterChipActive]} onPress={() => setViewFilter(filter.key)}>
+                  <Text style={[styles.filterText, viewFilter === filter.key && styles.filterTextActive]}>{filter.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         </View>
 
         {loading ? (
@@ -464,7 +472,7 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
       </View>
 
       <Modal visible={!!selected} transparent={false} animationType="fade" onRequestClose={closeViewer} presentationStyle="fullScreen">
-        <View style={styles.viewerRoot}>
+        <View style={[styles.viewerRoot, { paddingTop: viewerTopPad, paddingBottom: viewerBottomPad }]}>
           <View style={styles.viewerHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.viewerTitle} numberOfLines={1}>{selected?.caption || selected?.filename || 'Photo'}</Text>
@@ -503,28 +511,33 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12 },
-  toolbar: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  search: { flex: 1, minHeight: 44, borderRadius: 14, paddingHorizontal: 14, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: '#c7d7ec', color: colors.text, fontWeight: '800' },
-  refreshBtn: { minWidth: 92, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingHorizontal: 14 },
+  container: { flex: 1, padding: 10 },
+  controls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 },
+  controlsWide: { alignItems: 'center' },
+  search: { flexGrow: 1, flexBasis: '100%', minHeight: 40, borderRadius: 12, paddingHorizontal: 12, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#c7d7ec', color: colors.text, fontWeight: '800' },
+  searchWide: { flexBasis: 320, maxWidth: 430 },
+  refreshBtn: { minWidth: 82, minHeight: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingHorizontal: 12 },
   refreshText: { color: '#fff', fontWeight: '900' },
-  filterLabel: { color: '#334155', fontWeight: '900', marginBottom: 6, marginLeft: 2 },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  filterChip: { borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.86)', borderWidth: 1, borderColor: '#c7d7ec' },
+  filterGroup: { flexDirection: 'column', gap: 4, marginBottom: 2 },
+  filterGroupWide: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  filterLabel: { color: '#dbeafe', fontWeight: '900', marginRight: 2 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  filterChip: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: 'rgba(255,255,255,0.88)', borderWidth: 1, borderColor: '#c7d7ec' },
   filterChipActive: { backgroundColor: '#10233f', borderColor: '#10233f' },
   filterText: { color: colors.text, fontWeight: '900' },
   filterTextActive: { color: '#fff' },
   list: { paddingBottom: 28 },
-  cardWrap: { padding: 6 },
-  card: { overflow: 'hidden', borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#c7d7ec', shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
-  thumb: { width: '100%', aspectRatio: 1.12, backgroundColor: '#dbe8f6' },
-  unseenPill: { position: 'absolute', top: 8, right: 8, overflow: 'hidden', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#dc2626', color: '#fff', fontWeight: '900', fontSize: 10 },
-  cardBody: { padding: 10, gap: 6 },
-  caption: { color: colors.text, fontWeight: '900', fontSize: 13, lineHeight: 17, minHeight: 34 },
+  cardWrap: { padding: 4 },
+  card: { overflow: 'hidden', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: '#c7d7ec', shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  thumb: { width: '100%', aspectRatio: 1.2, backgroundColor: '#dbe8f6' },
+  unseenPill: { position: 'absolute', top: 6, right: 6, overflow: 'hidden', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: '#dc2626', color: '#fff', fontWeight: '900', fontSize: 9 },
+  cardBody: { padding: 7, gap: 4 },
+  caption: { color: colors.text, fontWeight: '900', fontSize: 11.5, lineHeight: 15, minHeight: 30 },
+  compactMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  dateText: { color: '#64748b', fontSize: 11, fontWeight: '800' },
-  viewed: { color: '#2563eb', fontSize: 10, fontWeight: '900' },
-  badge: { alignSelf: 'flex-start', overflow: 'hidden', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, fontSize: 10, fontWeight: '900' },
+  dateText: { color: '#64748b', fontSize: 9.5, fontWeight: '800' },
+  viewed: { color: '#2563eb', fontSize: 9, fontWeight: '900' },
+  badge: { alignSelf: 'flex-start', overflow: 'hidden', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2.5, fontSize: 8.5, fontWeight: '900' },
   badgeAccepted: { color: '#166534', backgroundColor: '#dcfce7' },
   badgeRejected: { color: '#991b1b', backgroundColor: '#fee2e2' },
   badgePending: { color: '#92400e', backgroundColor: '#fef3c7' },
@@ -535,12 +548,12 @@ const styles = StyleSheet.create({
   errorTitle: { color: '#991b1b', fontWeight: '900', fontSize: 17 },
   errorText: { color: '#991b1b', fontWeight: '800', textAlign: 'center' },
   viewerRoot: { flex: 1, backgroundColor: '#020617' },
-  viewerHeader: { minHeight: 72, paddingTop: 12, paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(15,23,42,0.96)', zIndex: 5 },
+  viewerHeader: { minHeight: 62, paddingTop: 8, paddingHorizontal: 12, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(15,23,42,0.96)', zIndex: 5 },
   viewerTitle: { color: '#fff', fontWeight: '900', fontSize: 16 },
   viewerSub: { color: '#cbd5e1', fontWeight: '800', marginTop: 2 },
   resetBtn: { borderRadius: 12, backgroundColor: '#334155', paddingHorizontal: 12, paddingVertical: 10 },
   closeBtn: { borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10 },
   viewerButtonText: { color: '#fff', fontWeight: '900' },
   viewerStage: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  viewerHint: { color: '#cbd5e1', textAlign: 'center', fontWeight: '800', paddingVertical: 8, backgroundColor: 'rgba(15,23,42,0.96)' },
+  viewerHint: { color: '#cbd5e1', textAlign: 'center', fontWeight: '800', paddingVertical: 8, paddingHorizontal: 10, backgroundColor: 'rgba(15,23,42,0.96)' },
 });
