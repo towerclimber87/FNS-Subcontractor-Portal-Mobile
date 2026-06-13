@@ -260,6 +260,15 @@ export async function loadSubcontractorPhotoRepository(portalUrl, accessToken, {
   return parseJsonResponse(response);
 }
 
+
+export async function loadSubcontractorPhotoAnnotation(portalUrl, accessToken, assetId) {
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_PHOTO_REPOSITORY_PATH}/annotation/${encodeURIComponent(String(assetId))}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
 export async function markSubcontractorPhotoViewed(portalUrl, accessToken, assetId) {
   const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_PHOTO_REPOSITORY_PATH}/mark-viewed`), {
     method: 'POST',
