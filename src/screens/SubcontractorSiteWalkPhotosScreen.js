@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import ScreenShell, { colors } from '../components/ScreenShell';
 import { loadSubcontractorSiteWalkPhotoAnnotation, loadSubcontractorSiteWalkPhotos, subcontractorMediaUrl } from '../api/subcontractorApi';
@@ -12,6 +12,21 @@ const photoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.mobile_th
 const fullPhotoUrl = (portalUrl, p) => subcontractorMediaUrl(portalUrl, p?.rendered_url || p?.url || p?.public_url || p?.photo_url || p?.full_url || p?.thumb_url || p?.image_url);
 const pinPhotoId = (pin) => clean(pin?.matching_photo_id || pin?.photo_id || pin?.site_walk_photo_id || pin?.sitewalk_photo_id || pin?.linked_photo_id);
 const pinPhotoUrl = (pin) => clean(pin?.matching_photo_url || pin?.photo_url || pin?.site_walk_photo_url || pin?.image_url || pin?.url);
+
+
+function clampNumber(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+function touchDistance(a, b) {
+  const dx = Number(a?.pageX || 0) - Number(b?.pageX || 0);
+  const dy = Number(a?.pageY || 0) - Number(b?.pageY || 0);
+  return Math.max(1, Math.hypot(dx, dy));
+}
+function touchCenter(a, b) {
+  return { x: (Number(a?.pageX || 0) + Number(b?.pageX || 0)) / 2, y: (Number(a?.pageY || 0) + Number(b?.pageY || 0)) / 2 };
+}
 
 function firstNumber(...values) {
   for (const value of values) {
@@ -105,6 +120,9 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
   const [selectedAnnotation, setSelectedAnnotation] = useState(DEFAULT_ANNOTATION);
   const [annotationLoading, setAnnotationLoading] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
+  const zoomGesture = useRef({ mode: 'idle', startScale: 1, startDistance: 1, startOffset: { x: 0, y: 0 }, lastPoint: { x: 0, y: 0 }, lastCenter: { x: 0, y: 0 } });
   const selectedSite = siteName(project);
   const initialPhotoId = pinPhotoId(initialRedlinePhotoPin);
   const initialSitewalk = clean(initialRedlinePhotoPin?.sitewalk_desc || initialRedlinePhotoPin?.site_walk_desc);
@@ -120,12 +138,67 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
     return { width: boxW, height: boxH };
   }, [height, imageSize.height, imageSize.width, width]);
 
+  const resetZoom = useCallback(() => {
+    setZoomScale(1);
+    setZoomOffset({ x: 0, y: 0 });
+    zoomGesture.current = { mode: 'idle', startScale: 1, startDistance: 1, startOffset: { x: 0, y: 0 }, lastPoint: { x: 0, y: 0 }, lastCenter: { x: 0, y: 0 } };
+  }, []);
+  const clampOffset = useCallback((offset, scale = zoomScale) => {
+    if (scale <= 1.01) return { x: 0, y: 0 };
+    const maxX = Math.max(0, previewBox.width * (scale - 1) / 2);
+    const maxY = Math.max(0, previewBox.height * (scale - 1) / 2);
+    return { x: clampNumber(offset?.x || 0, -maxX, maxX), y: clampNumber(offset?.y || 0, -maxY, maxY) };
+  }, [previewBox.height, previewBox.width, zoomScale]);
+  const handleZoomStart = useCallback((evt) => {
+    const touches = evt?.nativeEvent?.touches || [];
+    if (touches.length >= 2) {
+      const center = touchCenter(touches[0], touches[1]);
+      zoomGesture.current = { mode: 'pinch', startScale: zoomScale, startDistance: touchDistance(touches[0], touches[1]), startOffset: zoomOffset, lastPoint: center, lastCenter: center };
+      return;
+    }
+    if (touches.length === 1) {
+      zoomGesture.current = { ...zoomGesture.current, mode: 'pan', startScale: zoomScale, startOffset: zoomOffset, lastPoint: { x: touches[0].pageX, y: touches[0].pageY } };
+    }
+  }, [zoomOffset, zoomScale]);
+  const handleZoomMove = useCallback((evt) => {
+    const touches = evt?.nativeEvent?.touches || [];
+    const g = zoomGesture.current;
+    if (touches.length >= 2) {
+      const center = touchCenter(touches[0], touches[1]);
+      const nextScale = clampNumber((g.startScale || 1) * (touchDistance(touches[0], touches[1]) / Math.max(1, g.startDistance || 1)), 1, 8);
+      const centerDx = center.x - (g.lastCenter?.x || center.x);
+      const centerDy = center.y - (g.lastCenter?.y || center.y);
+      setZoomScale(nextScale);
+      setZoomOffset(clampOffset({ x: (g.startOffset?.x || 0) + centerDx, y: (g.startOffset?.y || 0) + centerDy }, nextScale));
+      return;
+    }
+    if (touches.length === 1 && zoomScale > 1.01) {
+      const point = { x: touches[0].pageX, y: touches[0].pageY };
+      const dx = point.x - (g.lastPoint?.x || point.x);
+      const dy = point.y - (g.lastPoint?.y || point.y);
+      zoomGesture.current = { ...g, lastPoint: point };
+      setZoomOffset((prev) => clampOffset({ x: prev.x + dx, y: prev.y + dy }, zoomScale));
+    }
+  }, [clampOffset, zoomScale]);
+  const handleZoomEnd = useCallback(() => {
+    setZoomScale((prev) => {
+      const next = clampNumber(prev, 1, 8);
+      if (next <= 1.01) setZoomOffset({ x: 0, y: 0 });
+      else setZoomOffset((offset) => clampOffset(offset, next));
+      return next;
+    });
+    zoomGesture.current.mode = 'idle';
+  }, [clampOffset]);
+
+  useEffect(() => { resetZoom(); }, [selectedUrl, resetZoom]);
+
   const closeSelected = useCallback(() => {
     if (openedFromRedlinePin && typeof onBack === 'function') { onBack(); return; }
     setSelected(null);
     setSelectedAnnotation(DEFAULT_ANNOTATION);
     setImageSize({ width: 1, height: 1 });
-  }, [openedFromRedlinePin, onBack]);
+    resetZoom();
+  }, [openedFromRedlinePin, onBack, resetZoom]);
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!selectedSite) return;
@@ -187,11 +260,11 @@ export default function SubcontractorSiteWalkPhotosScreen({ session, project, in
         {loading ? <View style={styles.center}><ActivityIndicator color={colors.blue} /><Text style={styles.muted}>Loading photos…</Text></View> : <FlatList data={data} key={columns} numColumns={columns} keyExtractor={(item, index) => String(item?.id || index)} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />} contentContainerStyle={styles.list} renderItem={({ item }) => <Pressable style={[styles.cardWrap, { width: `${100 / columns}%` }]} onPress={() => setSelected(item)}><View style={styles.photoCard}>{photoUrl(session.portalUrl, item) ? <Image source={{ uri: photoUrl(session.portalUrl, item) }} style={styles.thumb} /> : <View style={[styles.thumb, styles.noImage]}><Text style={styles.noImageText}>No Image</Text></View>}<View style={styles.cardBody}><Text style={styles.photoTitle} numberOfLines={2}>{photoTitle(item)}</Text><Text style={styles.meta} numberOfLines={1}>{clean(item?.tag) || 'Untagged'}{clean(item?.sitewalk_desc) ? ` · ${clean(item.sitewalk_desc)}` : ''}</Text></View></View></Pressable>} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyTitle}>No photos found</Text><Text style={styles.muted}>This subcontractor view only shows SiteWalk photos allowed for this site/SiteWalk.</Text></View>} />}
       </View>
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={closeSelected}>
-        <View style={styles.modalBg}><View style={styles.viewer}><View style={styles.viewerHeader}><View style={{ flex: 1 }}><Text style={styles.viewerTitle} numberOfLines={1}>{selected ? photoTitle(selected) : ''}</Text>{annotationLoading ? <Text style={styles.viewerSub}>Loading annotations…</Text> : null}</View><Pressable style={styles.closeBtn} onPress={closeSelected}><Text style={styles.closeText}>Close</Text></Pressable></View>{selected ? <View style={styles.imageStage}><View style={{ width: previewBox.width, height: previewBox.height }}><Image source={{ uri: selectedUrl }} style={{ width: previewBox.width, height: previewBox.height, backgroundColor: '#020617' }} resizeMode="contain" /><AnnotationOverlay annotation={selectedAnnotation} imageSize={imageSize} displaySize={previewBox} /></View></View> : null}<Text style={styles.viewerMeta}>{clean(selected?.note || selected?.caption)}</Text></View></View>
+        <View style={styles.modalBg}><View style={styles.viewer}><View style={styles.viewerHeader}><View style={{ flex: 1 }}><Text style={styles.viewerTitle} numberOfLines={1}>{selected ? photoTitle(selected) : ''}</Text>{annotationLoading ? <Text style={styles.viewerSub}>Loading annotations…</Text> : <Text style={styles.viewerSub}>{zoomScale > 1.01 ? `${zoomScale.toFixed(1)}x · Drag to pan` : 'Pinch to zoom'}</Text>}</View><Pressable style={styles.resetBtn} onPress={resetZoom}><Text style={styles.resetText}>Reset</Text></Pressable><Pressable style={styles.closeBtn} onPress={closeSelected}><Text style={styles.closeText}>Close</Text></Pressable></View>{selected ? <View style={styles.imageStage}><View style={[styles.zoomClip, { width: previewBox.width, height: previewBox.height }]} onStartShouldSetResponder={() => true} onMoveShouldSetResponder={() => true} onResponderGrant={handleZoomStart} onResponderMove={handleZoomMove} onResponderRelease={handleZoomEnd} onResponderTerminate={handleZoomEnd}><View style={{ width: previewBox.width, height: previewBox.height, transform: [{ translateX: zoomOffset.x }, { translateY: zoomOffset.y }, { scale: zoomScale }] }}><Image source={{ uri: selectedUrl }} style={{ width: previewBox.width, height: previewBox.height, backgroundColor: '#020617' }} resizeMode="contain" /><AnnotationOverlay annotation={selectedAnnotation} imageSize={imageSize} displaySize={previewBox} /></View></View></View> : null}<Text style={styles.viewerMeta}>{clean(selected?.note || selected?.caption)}</Text></View></View>
       </Modal>
     </ScreenShell>
   );
 }
 const styles = StyleSheet.create({
-  wrap:{flex:1}, toolbarCard:{margin:12,padding:12,borderRadius:22,backgroundColor:'rgba(255,255,255,0.92)',borderWidth:1,borderColor:colors.line,gap:10}, search:{backgroundColor:'#fff',borderWidth:1,borderColor:colors.line,borderRadius:16,paddingHorizontal:14,paddingVertical:11,color:colors.text,fontWeight:'800'}, chips:{gap:8,paddingRight:8}, chip:{paddingHorizontal:12,paddingVertical:9,borderRadius:999,backgroundColor:'#eef6ff',borderWidth:1,borderColor:'#c8def6'}, chipActive:{backgroundColor:'#10233f',borderColor:'#10233f'}, chipText:{fontWeight:'900',color:'#31506d'}, chipTextActive:{color:'#fff'}, tag:{paddingHorizontal:11,paddingVertical:8,borderRadius:999,backgroundColor:'#fff',borderWidth:1,borderColor:colors.line}, tagActive:{backgroundColor:colors.blue,borderColor:colors.blue}, tagText:{fontWeight:'900',color:colors.muted}, tagTextActive:{color:'#fff'}, center:{flex:1,alignItems:'center',justifyContent:'center',gap:10}, muted:{color:colors.muted,fontWeight:'800'}, list:{padding:8,paddingBottom:30}, cardWrap:{padding:6}, photoCard:{backgroundColor:'#fff',borderRadius:18,borderWidth:1,borderColor:colors.line,overflow:'hidden',shadowColor:'#0f172a',shadowOpacity:.06,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:2}, thumb:{width:'100%',aspectRatio:1.12,backgroundColor:'#dbe7f2'}, noImage:{alignItems:'center',justifyContent:'center'}, noImageText:{color:colors.muted,fontWeight:'900'}, cardBody:{padding:10}, photoTitle:{color:colors.text,fontWeight:'900',fontSize:14,lineHeight:18}, meta:{marginTop:4,color:colors.muted,fontWeight:'800',fontSize:11}, empty:{padding:26,alignItems:'center'}, emptyTitle:{fontSize:18,fontWeight:'900',color:colors.text,marginBottom:6}, modalBg:{flex:1,backgroundColor:'rgba(0,0,0,.82)',padding:14,justifyContent:'center'}, viewer:{height:'90%',backgroundColor:'#071220',borderRadius:24,overflow:'hidden',borderWidth:1,borderColor:'#334155'}, viewerHeader:{flexDirection:'row',alignItems:'center',gap:10,padding:12,borderBottomWidth:1,borderBottomColor:'#26364e'}, viewerTitle:{color:'#fff',fontWeight:'900',fontSize:16}, viewerSub:{color:'#cbd5e1',fontWeight:'800',fontSize:11,marginTop:2}, closeBtn:{paddingHorizontal:13,paddingVertical:8,borderRadius:999,backgroundColor:'#fff'}, closeText:{color:colors.blue,fontWeight:'900'}, imageStage:{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:'#020617'}, viewerMeta:{padding:12,color:'#cbd5e1',fontWeight:'800'}
+  wrap:{flex:1}, toolbarCard:{margin:12,padding:12,borderRadius:22,backgroundColor:'rgba(255,255,255,0.92)',borderWidth:1,borderColor:colors.line,gap:10}, search:{backgroundColor:'#fff',borderWidth:1,borderColor:colors.line,borderRadius:16,paddingHorizontal:14,paddingVertical:11,color:colors.text,fontWeight:'800'}, chips:{gap:8,paddingRight:8}, chip:{paddingHorizontal:12,paddingVertical:9,borderRadius:999,backgroundColor:'#eef6ff',borderWidth:1,borderColor:'#c8def6'}, chipActive:{backgroundColor:'#10233f',borderColor:'#10233f'}, chipText:{fontWeight:'900',color:'#31506d'}, chipTextActive:{color:'#fff'}, tag:{paddingHorizontal:11,paddingVertical:8,borderRadius:999,backgroundColor:'#fff',borderWidth:1,borderColor:colors.line}, tagActive:{backgroundColor:colors.blue,borderColor:colors.blue}, tagText:{fontWeight:'900',color:colors.muted}, tagTextActive:{color:'#fff'}, center:{flex:1,alignItems:'center',justifyContent:'center',gap:10}, muted:{color:colors.muted,fontWeight:'800'}, list:{padding:8,paddingBottom:30}, cardWrap:{padding:6}, photoCard:{backgroundColor:'#fff',borderRadius:18,borderWidth:1,borderColor:colors.line,overflow:'hidden',shadowColor:'#0f172a',shadowOpacity:.06,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:2}, thumb:{width:'100%',aspectRatio:1.12,backgroundColor:'#dbe7f2'}, noImage:{alignItems:'center',justifyContent:'center'}, noImageText:{color:colors.muted,fontWeight:'900'}, cardBody:{padding:10}, photoTitle:{color:colors.text,fontWeight:'900',fontSize:14,lineHeight:18}, meta:{marginTop:4,color:colors.muted,fontWeight:'800',fontSize:11}, empty:{padding:26,alignItems:'center'}, emptyTitle:{fontSize:18,fontWeight:'900',color:colors.text,marginBottom:6}, modalBg:{flex:1,backgroundColor:'rgba(0,0,0,.82)',padding:14,justifyContent:'center'}, viewer:{height:'90%',backgroundColor:'#071220',borderRadius:24,overflow:'hidden',borderWidth:1,borderColor:'#334155'}, viewerHeader:{flexDirection:'row',alignItems:'center',gap:10,padding:12,borderBottomWidth:1,borderBottomColor:'#26364e'}, viewerTitle:{color:'#fff',fontWeight:'900',fontSize:16}, viewerSub:{color:'#cbd5e1',fontWeight:'800',fontSize:11,marginTop:2}, resetBtn:{paddingHorizontal:13,paddingVertical:8,borderRadius:999,backgroundColor:'#24344f'}, resetText:{color:'#fff',fontWeight:'900'}, closeBtn:{paddingHorizontal:13,paddingVertical:8,borderRadius:999,backgroundColor:'#fff'}, closeText:{color:colors.blue,fontWeight:'900'}, imageStage:{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:'#020617'}, zoomClip:{overflow:'hidden',alignItems:'center',justifyContent:'center',backgroundColor:'#020617'}, viewerMeta:{padding:12,color:'#cbd5e1',fontWeight:'800'}
 });
