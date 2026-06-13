@@ -12,6 +12,7 @@ const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-
 const SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH = '/mobile/subcontractor/api/site-daily-tracker';
 const SUBCONTRACTOR_DAILY_REPORT_PATH = '/mobile/subcontractor/api/daily-report';
 const SUBCONTRACTOR_PHOTO_REPOSITORY_PATH = '/mobile/subcontractor/api/photo-repository';
+const SUBCONTRACTOR_SITE_CDS_PATH = '/mobile/subcontractor/api/site-cds';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -276,6 +277,27 @@ export async function markSubcontractorPhotoViewed(portalUrl, accessToken, asset
     body: JSON.stringify({ asset_id: assetId }),
   });
   return parseJsonResponse(response);
+}
+
+
+
+export async function loadSubcontractorSiteCds(portalUrl, accessToken, { siteName = '', rel = '' } = {}) {
+  const params = new URLSearchParams();
+  if (siteName) params.set('site_name', siteName);
+  if (rel) params.set('rel', rel);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_SITE_CDS_PATH}${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export function buildSubcontractorSiteCdOpenPath({ rel, inline = true }) {
+  const params = new URLSearchParams();
+  params.set('rel', rel || '');
+  params.set('inline', inline ? '1' : '0');
+  return `/subcontractor_site_docs/api/download?${params.toString()}`;
 }
 
 export function buildSiteDocumentDownloadPath({ siteName, section, bucket, filename }) {
