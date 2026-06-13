@@ -39,7 +39,7 @@ const VIEW_FILTERS = [
   { key: '', label: 'All' },
 ];
 
-const DEFAULT_ANNOTATION = { rot: 0, strokes: [], labels: [], shapes: [] };
+const DEFAULT_ANNOTATION = { rot: 0, imageWidth: 0, imageHeight: 0, strokes: [], labels: [], shapes: [] };
 const ACTIVE_BLUE = '#4f46e5';
 const REFRESH_BLUE = '#2563eb';
 
@@ -53,6 +53,28 @@ function siteId(project) {
 
 function clean(value) {
   return String(value ?? '').trim();
+}
+
+function firstNumber(...values) {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function touchesFromEvent(evt) {
+  const native = evt?.nativeEvent || {};
+  const touches = native.touches && native.touches.length ? native.touches : native.changedTouches;
+  return Array.from(touches || []);
+}
+
+function pointFromTouch(touch) {
+  return { x: Number(touch?.pageX ?? touch?.locationX ?? 0), y: Number(touch?.pageY ?? touch?.locationY ?? 0) };
 }
 
 function statusLabel(status) {
@@ -71,8 +93,18 @@ function statusStyle(status) {
 
 function normalizeAnnotationPayload(payload) {
   const raw = payload?.data_json ?? payload?.annotation?.data_json ?? payload?.annotation ?? payload ?? {};
+  const imageWidth = firstNumber(
+    raw?.imageWidth, raw?.image_width, raw?.imgW, raw?.img_w, raw?.canvasWidth, raw?.canvas_width, raw?.width,
+    payload?.imageWidth, payload?.image_width, payload?.imgW, payload?.img_w, payload?.canvasWidth, payload?.canvas_width, payload?.width
+  );
+  const imageHeight = firstNumber(
+    raw?.imageHeight, raw?.image_height, raw?.imgH, raw?.img_h, raw?.canvasHeight, raw?.canvas_height, raw?.height,
+    payload?.imageHeight, payload?.image_height, payload?.imgH, payload?.img_h, payload?.canvasHeight, payload?.canvas_height, payload?.height
+  );
   return {
     rot: Number(raw?.rot || 0),
+    imageWidth,
+    imageHeight,
     strokes: Array.isArray(raw?.strokes) ? raw.strokes : [],
     labels: Array.isArray(raw?.labels) ? raw.labels : [],
     shapes: Array.isArray(raw?.shapes) ? raw.shapes : [],
@@ -142,8 +174,8 @@ function AnnotationArrow({ shape, mapX, mapY, mapSize }) {
 }
 
 function AnnotationOverlay({ annotation, imageSize, displaySize }) {
-  const imgW = Math.max(1, Number(imageSize?.width || 1));
-  const imgH = Math.max(1, Number(imageSize?.height || 1));
+  const imgW = Math.max(1, firstNumber(annotation?.imageWidth, imageSize?.width, 1));
+  const imgH = Math.max(1, firstNumber(annotation?.imageHeight, imageSize?.height, 1));
   const dispW = Math.max(1, Number(displaySize?.width || 1));
   const dispH = Math.max(1, Number(displaySize?.height || 1));
   const sx = dispW / imgW;
@@ -212,14 +244,15 @@ function AnnotationOverlay({ annotation, imageSize, displaySize }) {
 
 function getDistance(touches) {
   if (!touches || touches.length < 2) return 0;
-  const [a, b] = touches;
-  return Math.hypot((a.pageX || 0) - (b.pageX || 0), (a.pageY || 0) - (b.pageY || 0));
+  const a = pointFromTouch(touches[0]);
+  const b = pointFromTouch(touches[1]);
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function getCentroid(touches) {
-  const list = Array.from(touches || []);
+  const list = Array.from(touches || []).map(pointFromTouch);
   if (!list.length) return { x: 0, y: 0 };
-  return { x: list.reduce((sum, t) => sum + (t.pageX || 0), 0) / list.length, y: list.reduce((sum, t) => sum + (t.pageY || 0), 0) / list.length };
+  return { x: list.reduce((sum, t) => sum + t.x, 0) / list.length, y: list.reduce((sum, t) => sum + t.y, 0) / list.length };
 }
 
 export default function PhotoRepositoryScreen({ session, project, page, onBack, onHome }) {
@@ -244,11 +277,16 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
   const [zoomScale, setZoomScale] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const gestureRef = useRef({ distance: 0, scale: 1, pan: { x: 0, y: 0 }, lastPoint: null });
+  const gestureRef = useRef({ distance: 0, scale: 1, pan: { x: 0, y: 0 }, lastPoint: null, focal: null });
+  const zoomScaleRef = useRef(1);
+  const panOffsetRef = useRef({ x: 0, y: 0 });
 
   const imageHeaders = useMemo(() => token ? { Authorization: `Bearer ${token}` } : undefined, [token]);
   const viewerTopPad = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 18 : (isTablet ? 38 : 54);
   const viewerBottomPad = Platform.OS === 'android' ? 30 : (isTablet ? 18 : 30);
+
+  useEffect(() => { zoomScaleRef.current = zoomScale; }, [zoomScale]);
+  useEffect(() => { panOffsetRef.current = panOffset; }, [panOffset]);
 
   const fetchItems = useCallback(async ({ silent = false } = {}) => {
     if (!portalUrl || !token) return;
@@ -288,6 +326,8 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   }, [items, statusFilter, viewFilter]);
 
   const selectedUrl = selected ? subcontractorMediaUrl(portalUrl, selected.full_url || selected.photo_url || selected.preview_url) : '';
+  const selectedImageWidth = firstNumber(selected?.image_width, selected?.imageWidth, selected?.width);
+  const selectedImageHeight = firstNumber(selected?.image_height, selected?.imageHeight, selected?.height);
   const previewBox = useMemo(() => {
     const maxW = Math.max(1, width);
     const maxH = Math.max(1, height - 96);
@@ -304,7 +344,7 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
   const resetViewer = useCallback(() => {
     setZoomScale(1);
     setPanOffset({ x: 0, y: 0 });
-    gestureRef.current = { distance: 0, scale: 1, pan: { x: 0, y: 0 }, lastPoint: null };
+    gestureRef.current = { distance: 0, scale: 1, pan: { x: 0, y: 0 }, lastPoint: null, focal: null };
   }, []);
 
   const closeViewer = useCallback(() => {
@@ -330,8 +370,14 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
     resetViewer();
     let active = true;
     const assetId = selected.id || selected.asset_id;
+    if (selectedImageWidth && selectedImageHeight) setImageSize({ width: selectedImageWidth, height: selectedImageHeight });
     loadSubcontractorPhotoAnnotation(portalUrl, token, assetId)
-      .then((payload) => { if (active) setSelectedAnnotation(normalizeAnnotationPayload(payload)); })
+      .then((payload) => {
+        if (!active) return;
+        const normalized = normalizeAnnotationPayload(payload);
+        setSelectedAnnotation(normalized);
+        if (normalized.imageWidth && normalized.imageHeight) setImageSize({ width: normalized.imageWidth, height: normalized.imageHeight });
+      })
       .catch(() => { if (active) setSelectedAnnotation(DEFAULT_ANNOTATION); })
       .finally(() => { if (active) setAnnotationLoading(false); });
     if (token && typeof Image.getSizeWithHeaders === 'function') {
@@ -340,49 +386,84 @@ export default function PhotoRepositoryScreen({ session, project, page, onBack, 
       Image.getSize(selectedUrl, (w, h) => active && setImageSize({ width: Math.max(1, w), height: Math.max(1, h) }), () => {});
     }
     return () => { active = false; };
-  }, [imageHeaders, portalUrl, resetViewer, selected, selectedUrl, token]);
+  }, [imageHeaders, portalUrl, resetViewer, selected, selectedImageHeight, selectedImageWidth, selectedUrl, token]);
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => Boolean(selected),
-    onMoveShouldSetPanResponder: () => Boolean(selected),
+    onStartShouldSetPanResponder: (evt) => Boolean(selected) && touchesFromEvent(evt).length >= 2,
+    onStartShouldSetPanResponderCapture: (evt) => Boolean(selected) && touchesFromEvent(evt).length >= 2,
+    onMoveShouldSetPanResponder: (evt, gestureState) => Boolean(selected) && (touchesFromEvent(evt).length >= 2 || zoomScaleRef.current > 1.01 || Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3),
+    onMoveShouldSetPanResponderCapture: (evt) => Boolean(selected) && touchesFromEvent(evt).length >= 2,
     onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
     onPanResponderGrant: (evt) => {
-      const touches = evt.nativeEvent.touches || [];
+      const touches = touchesFromEvent(evt);
+      const focal = getCentroid(touches);
       gestureRef.current = {
         distance: getDistance(touches),
-        scale: zoomScale,
-        pan: panOffset,
-        lastPoint: getCentroid(touches),
+        scale: zoomScaleRef.current,
+        pan: panOffsetRef.current,
+        lastPoint: focal,
+        focal,
       };
     },
     onPanResponderMove: (evt) => {
-      const touches = evt.nativeEvent.touches || [];
+      const touches = touchesFromEvent(evt);
       if (touches.length >= 2) {
+        const focal = getCentroid(touches);
         const nextDistance = getDistance(touches);
+        if (!gestureRef.current.distance) {
+          gestureRef.current = {
+            distance: nextDistance || 1,
+            scale: zoomScaleRef.current,
+            pan: panOffsetRef.current,
+            lastPoint: focal,
+            focal,
+          };
+        }
         const startDistance = Math.max(1, gestureRef.current.distance || nextDistance || 1);
-        const nextScale = Math.max(1, Math.min(6, gestureRef.current.scale * (nextDistance / startDistance)));
+        const nextScale = clamp(gestureRef.current.scale * (nextDistance / startDistance), 1, 8);
+        const startScale = Math.max(1, gestureRef.current.scale || 1);
+        const scaleRatio = nextScale / startScale;
+        const startFocal = gestureRef.current.focal || focal;
+        const startPan = gestureRef.current.pan || { x: 0, y: 0 };
+        const nextPan = {
+          x: focal.x - startFocal.x + startPan.x * scaleRatio,
+          y: focal.y - startFocal.y + startPan.y * scaleRatio,
+        };
+        const maxX = Math.max(0, (previewBox.width * nextScale - previewBox.width) / 2 + 160);
+        const maxY = Math.max(0, (previewBox.height * nextScale - previewBox.height) / 2 + 160);
+        const clampedPan = { x: clamp(nextPan.x, -maxX, maxX), y: clamp(nextPan.y, -maxY, maxY) };
+        zoomScaleRef.current = nextScale;
+        panOffsetRef.current = clampedPan;
         setZoomScale(nextScale);
+        setPanOffset(clampedPan);
         return;
       }
+      if (zoomScaleRef.current <= 1.01) return;
       const point = getCentroid(touches);
       const last = gestureRef.current.lastPoint || point;
       const dx = point.x - last.x;
       const dy = point.y - last.y;
       gestureRef.current.lastPoint = point;
-      setPanOffset((prev) => {
-        if (zoomScale <= 1.01) return { x: 0, y: 0 };
-        const maxX = (previewBox.width * zoomScale - previewBox.width) / 2 + 160;
-        const maxY = (previewBox.height * zoomScale - previewBox.height) / 2 + 160;
-        return { x: Math.max(-maxX, Math.min(maxX, prev.x + dx)), y: Math.max(-maxY, Math.min(maxY, prev.y + dy)) };
-      });
+      const maxX = Math.max(0, (previewBox.width * zoomScaleRef.current - previewBox.width) / 2 + 160);
+      const maxY = Math.max(0, (previewBox.height * zoomScaleRef.current - previewBox.height) / 2 + 160);
+      const nextPan = { x: clamp(panOffsetRef.current.x + dx, -maxX, maxX), y: clamp(panOffsetRef.current.y + dy, -maxY, maxY) };
+      panOffsetRef.current = nextPan;
+      setPanOffset(nextPan);
     },
     onPanResponderRelease: () => {
-      if (zoomScale <= 1.01) {
+      gestureRef.current = { ...gestureRef.current, distance: 0, lastPoint: null, focal: null };
+      if (zoomScaleRef.current <= 1.01) {
+        zoomScaleRef.current = 1;
+        panOffsetRef.current = { x: 0, y: 0 };
         setZoomScale(1);
         setPanOffset({ x: 0, y: 0 });
       }
     },
-  }), [panOffset, previewBox.height, previewBox.width, selected, zoomScale]);
+    onPanResponderTerminate: () => {
+      gestureRef.current = { ...gestureRef.current, distance: 0, lastPoint: null, focal: null };
+    },
+  }), [previewBox.height, previewBox.width, selected]);
 
   async function openPhoto(item) {
     setSelected(item);
