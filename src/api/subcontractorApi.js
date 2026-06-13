@@ -10,6 +10,7 @@ const SITE_DOCUMENTS_PATH = '/mobile/subcontractor/api/site-documents/files';
 const SITE_DOCUMENT_DELETE_PATH = '/mobile/subcontractor/api/site-documents/delete';
 const SUBCONTRACTOR_MATERIAL_TRACKER_PATH = '/mobile/subcontractor/api/material-tracker';
 const SUBCONTRACTOR_SITE_DAILY_TRACKER_PATH = '/mobile/subcontractor/api/site-daily-tracker';
+const SUBCONTRACTOR_DAILY_REPORT_PATH = '/mobile/subcontractor/api/daily-report';
 
 export function normalizePortalUrl(value) {
   let raw = String(value || '').trim();
@@ -209,6 +210,36 @@ export async function uploadSubcontractorMaterialTrackerPhotos(portalUrl, access
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ client_id: clientId, photos: photos || [] }),
+  });
+  return parseJsonResponse(response);
+}
+
+
+
+export async function loadSubcontractorDailyReportBootstrap(portalUrl, accessToken, siteName) {
+  const qs = `?site_name=${encodeURIComponent(siteName || '')}`;
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_DAILY_REPORT_PATH}/bootstrap${qs}`), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+  });
+  return parseJsonResponse(response);
+}
+
+export async function submitSubcontractorDailyReport(portalUrl, accessToken, fields = {}, photos = []) {
+  const fd = new FormData();
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) fd.append(key, String(value));
+  });
+  (photos || []).forEach((asset, index) => {
+    if (!asset?.uri) return;
+    const name = asset.fileName || asset.name || `daily-report-photo-${Date.now()}-${index + 1}.jpg`;
+    const type = asset.mimeType || asset.type || 'image/jpeg';
+    fd.append('photos', { uri: asset.uri, name, type });
+  });
+  const response = await fetch(buildApiUrl(portalUrl, `${SUBCONTRACTOR_DAILY_REPORT_PATH}/submit`), {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: fd,
   });
   return parseJsonResponse(response);
 }
